@@ -3,6 +3,7 @@
 import {
   createContext,
   ReactNode,
+  startTransition,
   useContext,
   useEffect,
   useMemo,
@@ -10,9 +11,13 @@ import {
 } from "react";
 
 import { initialState } from "@/lib/data";
-import { AppNotification, AppStateData, Pathway, SubscriptionTier, UserProfile, Visa } from "@/lib/types";
-
-const STORAGE_KEY = "migrately-mvp-state-v1";
+import {
+  AppMutation,
+  AppStateData,
+  SubscriptionTier,
+  UserProfile,
+  Visa,
+} from "@/lib/types";
 
 interface AppStateContextValue extends AppStateData {
   ready: boolean;
@@ -44,155 +49,134 @@ function mergeState(candidate: Partial<AppStateData>): AppStateData {
   };
 }
 
-function createNotification(notification: Omit<AppNotification, "id" | "createdAt" | "read">): AppNotification {
-  return {
-    ...notification,
-    id: `${notification.kind}-${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    read: false,
-  };
-}
-
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppStateData>(initialState);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+    let cancelled = false;
 
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<AppStateData>;
-        setState(mergeState(parsed));
+    async function loadState() {
+      try {
+        const response = await fetch("/api/state", { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load app state (${response.status})`);
+        }
+
+        const nextState = (await response.json()) as AppStateData;
+
+        if (!cancelled) {
+          startTransition(() => {
+            setState(mergeState(nextState));
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load SQLite state", error);
+      } finally {
+        if (!cancelled) {
+          setReady(true);
+        }
       }
-    } catch (error) {
-      console.error("Failed to restore demo state", error);
-    } finally {
-      setReady(true);
     }
+
+    loadState();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    if (!ready) {
-      return;
+  async function commitMutation(mutation: AppMutation) {
+    const response = await fetch("/api/state", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(mutation),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to apply mutation (${response.status})`);
     }
 
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [ready, state]);
+    const nextState = (await response.json()) as AppStateData;
+
+    startTransition(() => {
+      setState(mergeState(nextState));
+    });
+  }
 
   const value = useMemo<AppStateContextValue>(
     () => ({
       ...state,
       ready,
-      updateProfile: (profile) =>
-        setState((current) => ({
-          ...current,
-          profile: {
-            ...current.profile,
-            ...profile,
-          },
-        })),
-      setTier: (tier) =>
-        setState((current) => ({
-          ...current,
-          tier,
-        })),
-      startPathway: (visaId) =>
-        setState((current) => {
-          const existing = current.pathways.find((pathway) => pathway.visaId === visaId);
-          if (existing) {
-            return current;
+      updateProfile: (profile) => {
+        void commitMutation({ type: "update_profile", payload: profile }).catch(
+          (error) => {
+            console.error("Could not save profile changes", error);
           }
-
-          const nextPathway: Pathway = {
-            id: `pathway-${Date.now()}`,
-            visaId,
-            startedAt: new Date().toISOString(),
-            completedStepIds: [],
-            completedDocumentIds: [],
-          };
-
-          const visa = current.visas.find((entry) => entry.id === visaId);
-
-          return {
-            ...current,
-            pathways: [nextPathway, ...current.pathways],
-            notifications: [
-              createNotification({
-                title: "Pathway started",
-                message: visa
-                  ? `${visa.name} was added to your active pathways.`
-                  : "A new pathway was added to your tracker.",
-                kind: "pathway",
-                visaId,
-              }),
-              ...current.notifications,
-            ],
-          };
-        }),
-      toggleStep: (pathwayId, stepId) =>
-        setState((current) => ({
-          ...current,
-          pathways: current.pathways.map((pathway) => {
-            if (pathway.id !== pathwayId) {
-              return pathway;
-            }
-
-            const exists = pathway.completedStepIds.includes(stepId);
-            return {
-              ...pathway,
-              completedStepIds: exists
-                ? pathway.completedStepIds.filter((id) => id !== stepId)
-                : [...pathway.completedStepIds, stepId],
-            };
-          }),
-        })),
-      toggleDocument: (pathwayId, documentId) =>
-        setState((current) => ({
-          ...current,
-          pathways: current.pathways.map((pathway) => {
-            if (pathway.id !== pathwayId) {
-              return pathway;
-            }
-
-            const exists = pathway.completedDocumentIds.includes(documentId);
-            return {
-              ...pathway,
-              completedDocumentIds: exists
-                ? pathway.completedDocumentIds.filter((id) => id !== documentId)
-                : [...pathway.completedDocumentIds, documentId],
-            };
-          }),
-        })),
-      dismissNotification: (notificationId) =>
-        setState((current) => ({
-          ...current,
-          notifications: current.notifications.filter(
-            (notification) => notification.id !== notificationId
-          ),
-        })),
-      markNotificationRead: (notificationId) =>
-        setState((current) => ({
-          ...current,
-          notifications: current.notifications.map((notification) =>
-            notification.id === notificationId
-              ? { ...notification, read: true }
-              : notification
-          ),
-        })),
-      updateVisa: (visaId, patch) =>
-        setState((current) => ({
-          ...current,
-          visas: current.visas.map((visa) =>
-            visa.id === visaId
-              ? {
-                  ...visa,
-                  ...patch,
-                }
-              : visa
-          ),
-        })),
-      resetDemo: () => setState(initialState),
+        );
+      },
+      setTier: (tier) => {
+        void commitMutation({ type: "set_tier", payload: { tier } }).catch(
+          (error) => {
+            console.error("Could not update subscription tier", error);
+          }
+        );
+      },
+      startPathway: (visaId) => {
+        void commitMutation({ type: "start_pathway", payload: { visaId } }).catch(
+          (error) => {
+            console.error("Could not start pathway", error);
+          }
+        );
+      },
+      toggleStep: (pathwayId, stepId) => {
+        void commitMutation({
+          type: "toggle_step",
+          payload: { pathwayId, stepId },
+        }).catch((error) => {
+          console.error("Could not update step progress", error);
+        });
+      },
+      toggleDocument: (pathwayId, documentId) => {
+        void commitMutation({
+          type: "toggle_document",
+          payload: { pathwayId, documentId },
+        }).catch((error) => {
+          console.error("Could not update document progress", error);
+        });
+      },
+      dismissNotification: (notificationId) => {
+        void commitMutation({
+          type: "dismiss_notification",
+          payload: { notificationId },
+        }).catch((error) => {
+          console.error("Could not dismiss notification", error);
+        });
+      },
+      markNotificationRead: (notificationId) => {
+        void commitMutation({
+          type: "mark_notification_read",
+          payload: { notificationId },
+        }).catch((error) => {
+          console.error("Could not mark notification as read", error);
+        });
+      },
+      updateVisa: (visaId, patch) => {
+        void commitMutation({
+          type: "update_visa",
+          payload: { visaId, patch },
+        }).catch((error) => {
+          console.error("Could not save visa changes", error);
+        });
+      },
+      resetDemo: () => {
+        void commitMutation({ type: "reset_demo" }).catch((error) => {
+          console.error("Could not reset demo data", error);
+        });
+      },
     }),
     [ready, state]
   );

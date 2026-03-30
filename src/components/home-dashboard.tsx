@@ -2,8 +2,16 @@
 
 import Link from "next/link";
 
+import { PremiumGateCard } from "@/components/premium-gate-card";
 import { useAppState } from "@/components/providers/app-state-provider";
-import { formatMoney, getCountryByCode, getPathwayProgress, getProfileCompletion, getVisaAssessments } from "@/lib/matching";
+import {
+  describeRequirementGap,
+  formatMoney,
+  getCountryByCode,
+  getPathwayProgress,
+  getProfileCompletion,
+  getVisaAssessments,
+} from "@/lib/matching";
 
 export function HomeDashboard() {
   const { profile, visas, countries, pathways, tier, startPathway, ready } = useAppState();
@@ -19,6 +27,7 @@ export function HomeDashboard() {
   const activeCountries = countries.filter((country) =>
     matched.some((assessment) => assessment.visa.countryCode === country.code)
   );
+  const starterPathwayLimitReached = tier === "starter" && pathways.length >= 1;
 
   return (
     <div className="stack-lg">
@@ -81,10 +90,24 @@ export function HomeDashboard() {
             Open tracker
           </Link>
         </div>
+        {starterPathwayLimitReached ? (
+          <PremiumGateCard
+            title="Multiple saved pathways"
+            description="Starter includes one saved pathway. Premium users can save and compare multiple visa routes at once."
+            bullets={[
+              "Keep one visa pathway saved on Starter",
+              "Compare several active pathways on Premium",
+            ]}
+          />
+        ) : null}
         <div className="scroll-row">
           {assessments.slice(0, 4).map((assessment) => {
             const country = getCountryByCode(countries, assessment.visa.countryCode);
             const pathway = pathways.find((item) => item.visaId === assessment.visa.id);
+            const canSavePathway =
+              Boolean(pathway) ||
+              tier === "premium" ||
+              pathways.length === 0;
 
             return (
               <article key={assessment.visa.id} className="visa-card">
@@ -107,22 +130,35 @@ export function HomeDashboard() {
                 <ul className="compact-list">
                   {assessment.missingRequirements.length === 0 ? (
                     <li>All core requirements currently pass.</li>
-                  ) : (
+                  ) : tier === "premium" ? (
                     assessment.missingRequirements.slice(0, 2).map((result) => (
                       <li key={result.requirement.id}>
-                        Fix: {result.requirement.label.toLowerCase()}
+                        {describeRequirementGap(result.requirement)}
                       </li>
                     ))
+                  ) : (
+                    <li>Premium unlocks the fix-this-to-qualify plan.</li>
                   )}
                 </ul>
                 <div className="actions-row">
-                  <button
-                    className="button primary"
-                    onClick={() => startPathway(assessment.visa.id)}
-                    type="button"
-                  >
-                    {pathway ? "Tracking" : "Start pathway"}
-                  </button>
+                  {assessment.isEligible ? (
+                    <button
+                      className="button primary"
+                      disabled={!canSavePathway}
+                      onClick={() => startPathway(assessment.visa.id)}
+                      type="button"
+                    >
+                      {pathway
+                        ? "Saved pathway"
+                        : canSavePathway
+                          ? "Save pathway"
+                          : "Premium: save more"}
+                    </button>
+                  ) : (
+                    <Link className="button primary" href="/app/visas">
+                      {tier === "premium" ? "See fix plan" : "Premium fix plan"}
+                    </Link>
+                  )}
                   <Link className="button secondary" href="/app/profile">
                     Improve fit
                   </Link>
@@ -169,7 +205,7 @@ export function HomeDashboard() {
           <div className="panel-header">
             <div>
               <p className="eyebrow">Pathways</p>
-              <h2>Active applications</h2>
+              <h2>{tier === "premium" ? "Tracked applications" : "Saved pathways"}</h2>
             </div>
           </div>
           <div className="stack-md">
@@ -184,11 +220,18 @@ export function HomeDashboard() {
                 <div key={pathway.id} className="subtle-card">
                   <div className="space-between">
                     <strong>{visa.name}</strong>
-                    <span>{progress}%</span>
+                    <span>{tier === "premium" ? `${progress}%` : "Saved"}</span>
                   </div>
-                  <div className="progress-track compact">
-                    <div className="progress-fill" style={{ width: `${progress}%` }} />
-                  </div>
+                  {tier === "premium" ? (
+                    <div className="progress-track compact">
+                      <div className="progress-fill" style={{ width: `${progress}%` }} />
+                    </div>
+                  ) : (
+                    <p className="muted">
+                      Starter lets you bookmark one pathway. Step and document
+                      tracking unlock on Premium.
+                    </p>
+                  )}
                 </div>
               );
             })}
@@ -199,16 +242,16 @@ export function HomeDashboard() {
           <p className="eyebrow">Monetization</p>
           <h2>{tier === "premium" ? "Premium unlocked" : "Starter to premium upgrade"}</h2>
           <p className="muted">
-            Premium opens requirement explanations, conditional path guidance,
-            richer document prep, and deeper pathway sequencing.
+            Starter covers profile setup, discovery, eligibility matching, and
+            one saved pathway. Premium opens every action layer after that.
           </p>
           <ul className="compact-list">
-            <li>Explain exactly which conditional branch is strongest</li>
-            <li>Show fix-this-to-qualify tasks instead of generic failures</li>
-            <li>Track detailed steps for dependents and optional documents</li>
+            <li>Multiple saved pathways instead of one</li>
+            <li>Family members, requirement explanations, and visa insights</li>
+            <li>Fix-this-to-qualify, document details, and optional boosts</li>
           </ul>
           <Link className="button primary" href="/app/profile">
-            {tier === "premium" ? "Manage subscription" : "Unlock premium demo"}
+            {tier === "premium" ? "View plan details" : "View premium boundaries"}
           </Link>
         </article>
       </section>
@@ -225,10 +268,19 @@ export function HomeDashboard() {
             {stretch.map((assessment) => (
               <div key={assessment.visa.id} className="subtle-card">
                 <strong>{assessment.visa.name}</strong>
-                <p className="muted">
-                  Missing {assessment.missingRequirements.length} requirement
-                  {assessment.missingRequirements.length === 1 ? "" : "s"}.
-                </p>
+                {tier === "premium" ? (
+                  <ul className="compact-list">
+                    {assessment.missingRequirements.slice(0, 2).map((result) => (
+                      <li key={result.requirement.id}>
+                        {describeRequirementGap(result.requirement)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="muted">
+                    Premium shows the fix-this-to-qualify actions for close-fit visas.
+                  </p>
+                )}
               </div>
             ))}
           </div>

@@ -11,6 +11,7 @@ Mobile-first MVP for the `migrately_visa_app.pdf` proposal, implemented as a Nex
 - In-app notifications
 - Lightweight desktop-oriented admin editor
 - Manifest + service worker for PWA installation
+- SQLite-backed local persistence for the demo state
 
 ## Run
 
@@ -19,8 +20,14 @@ npm install
 npm run dev
 ```
 
+## Demo Accounts
+
+- Admin: `admin@migrately.demo` / `DemoAdmin!23`
+- Starter user: `starter@migrately.demo` / `DemoStarter!23`
+- Premium user: `premium@migrately.demo` / `DemoPremium!23`
+
 ## Notes
 
-- The MVP currently uses seeded local data and `localStorage`.
-- The next backend step is replacing local state with Supabase auth + PostgreSQL tables from the proposal.
+- The MVP now persists to a local SQLite file in `storage/migrately.sqlite`.
+- The storage boundary is isolated so the next backend step can swap SQLite for Supabase/PostgreSQL without rewriting the UI.
 - The app is explicitly framed as informational and non-legal-advice UX.

@@ -1,12 +1,12 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="180" height="180" rx="44" fill="url(#paint0_linear_1_3)"/>
-  <path d="M50 46H72L90 82L108 46H130L101 101V130H79V101L50 46Z" fill="#FFF8E8"/>
-  <circle cx="125" cy="50" r="12" fill="#FFE38A"/>
+  <path d="M50 46H72L90 82L108 46H130L101 101V130H79V101L50 46Z" fill="#FFFFFF"/>
+  <circle cx="125" cy="50" r="12" fill="#FFBE17"/>
   <defs>
     <linearGradient id="paint0_linear_1_3" x1="14" y1="12" x2="158" y2="166" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0E3B43"/>
-      <stop offset="0.52" stop-color="#12726C"/>
-      <stop offset="1" stop-color="#E77A4A"/>
+      <stop stop-color="#8A3DF5"/>
+      <stop offset="0.52" stop-color="#654AF0"/>
+      <stop offset="1" stop-color="#2B66E8"/>
     </linearGradient>
   </defs>
 </svg>

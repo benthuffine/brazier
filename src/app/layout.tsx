@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { ReactNode } from "react";
 
-import { AppStateProvider } from "@/components/providers/app-state-provider";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 
 import "./globals.css";
@@ -26,10 +25,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <AppStateProvider>
-          <ServiceWorkerRegistration />
-          {children}
-        </AppStateProvider>
+        <ServiceWorkerRegistration />
+        {children}
       </body>
     </html>
   );

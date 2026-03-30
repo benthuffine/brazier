@@ -1,8 +1,12 @@
 import Link from "next/link";
 
 import { RotatingWord } from "@/components/rotating-word";
+import { getOptionalSessionUser } from "@/lib/server/auth";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const user = await getOptionalSessionUser();
+  const primaryHref = user ? (user.role === "admin" ? "/admin" : "/app") : "/login";
+
   return (
     <main className="marketing-page">
       <section className="marketing-hero">
@@ -20,11 +24,11 @@ export default function LandingPage() {
               process without pretending to be legal counsel.
             </p>
             <div className="actions-row">
-              <Link className="button primary" href="/app">
-                Get started
+              <Link className="button primary" href={primaryHref}>
+                {user ? "Continue" : "Sign in"}
               </Link>
-              <Link className="button secondary" href="/admin">
-                Open admin
+              <Link className="button secondary" href="/login">
+                Demo users
               </Link>
             </div>
           </div>
@@ -43,8 +47,8 @@ export default function LandingPage() {
                 <strong>5</strong>
               </div>
               <div className="marketing-stat">
-                <span>Seed visas</span>
-                <strong>6</strong>
+                <span>Demo users</span>
+                <strong>3</strong>
               </div>
               <div className="marketing-stat">
                 <span>Installable</span>

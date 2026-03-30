@@ -202,3 +202,107 @@ export function formatMoney(value: number): string {
     maximumFractionDigits: 0,
   }).format(value);
 }
+
+const profileFieldLabels: Record<keyof UserProfile, string> = {
+  fullName: "full name",
+  age: "age",
+  residenceCountry: "residence country",
+  citizenships: "citizenships",
+  maritalStatus: "marital status",
+  educationLevel: "education level",
+  employmentStatus: "employment status",
+  annualIncome: "annual income",
+  savingsAmount: "savings",
+  languages: "languages",
+  englishLevel: "English proficiency",
+  workExperienceYears: "work experience",
+  hasCriminalRecord: "criminal record status",
+  canWorkRemotely: "remote work eligibility",
+  hasHealthInsurance: "health insurance",
+  hasJobOffer: "job offer",
+  dependents: "dependents",
+  familyMembers: "family members",
+};
+
+function formatEnumValue(value: string) {
+  return value.replace(/_/g, " ");
+}
+
+export function describeRequirementGap(requirement: Requirement): string {
+  const label = profileFieldLabels[requirement.field];
+
+  switch (requirement.operator) {
+    case "gte": {
+      if (
+        (requirement.field === "annualIncome" ||
+          requirement.field === "savingsAmount") &&
+        typeof requirement.value === "number"
+      ) {
+        return `Increase ${label} to at least ${formatMoney(requirement.value)}.`;
+      }
+
+      if (
+        requirement.field === "workExperienceYears" &&
+        typeof requirement.value === "number"
+      ) {
+        return `Reach at least ${requirement.value} years of work experience.`;
+      }
+
+      if (typeof requirement.value === "number") {
+        return `Increase ${label} to at least ${requirement.value}.`;
+      }
+      break;
+    }
+    case "isTrue": {
+      if (requirement.field === "canWorkRemotely") {
+        return "Show that your work is remote or location-independent.";
+      }
+
+      if (requirement.field === "hasHealthInsurance") {
+        return "Add qualifying health insurance before applying.";
+      }
+
+      if (requirement.field === "hasJobOffer") {
+        return "Secure a qualifying job offer for this route.";
+      }
+
+      return `Satisfy ${label} before applying.`;
+    }
+    case "isFalse": {
+      if (requirement.field === "hasCriminalRecord") {
+        return "This route assumes there is no criminal record issue.";
+      }
+
+      return `Resolve ${label} before applying.`;
+    }
+    case "atLeastEducation": {
+      if (typeof requirement.value === "string") {
+        return `Qualify with at least ${formatEnumValue(requirement.value)} education evidence.`;
+      }
+      break;
+    }
+    case "atLeastLanguage": {
+      if (typeof requirement.value === "string") {
+        return `Reach at least ${formatEnumValue(requirement.value)} English proficiency.`;
+      }
+      break;
+    }
+    case "includesAny": {
+      return `Match one of the accepted ${label} paths.`;
+    }
+    case "eq": {
+      return `Match the required ${label}.`;
+    }
+    case "neq": {
+      return `Avoid the disallowed ${label} state.`;
+    }
+    case "lte": {
+      if (typeof requirement.value === "number") {
+        return `Keep ${label} at or below ${requirement.value}.`;
+      }
+      break;
+    }
+  }
+
+  return `Improve ${label} to satisfy ${requirement.label.toLowerCase()}.`;
+}

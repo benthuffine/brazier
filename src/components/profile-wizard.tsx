@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
+import { PremiumGateCard } from "@/components/premium-gate-card";
 import { useAppState } from "@/components/providers/app-state-provider";
 import { getProfileCompletion, getVisaAssessments } from "@/lib/matching";
 import { UserProfile } from "@/lib/types";
@@ -14,7 +15,7 @@ const wizardSteps = [
 ];
 
 export function ProfileWizard() {
-  const { profile, tier, setTier, updateProfile, resetDemo, visas, ready } = useAppState();
+  const { profile, tier, updateProfile, resetDemo, visas, ready } = useAppState();
   const [stepIndex, setStepIndex] = useState(0);
   const [draft, setDraft] = useState<UserProfile>(profile);
 
@@ -118,10 +119,19 @@ export function ProfileWizard() {
                 <option value="divorced">Divorced</option>
               </select>
             </label>
-            <label className="field">
-              <span>Family members</span>
-              <input type="number" value={draft.familyMembers} onChange={handleNumber("familyMembers")} />
-            </label>
+            {tier === "premium" ? (
+              <label className="field">
+                <span>Family members</span>
+                <input type="number" value={draft.familyMembers} onChange={handleNumber("familyMembers")} />
+              </label>
+            ) : (
+              <div className="field-span-2">
+                <PremiumGateCard
+                  title="Family members"
+                  description="Starter profiles are individual only. Premium unlocks family-member planning for visa discovery and pathway prep."
+                />
+              </div>
+            )}
           </div>
         ) : null}
 
@@ -218,33 +228,44 @@ export function ProfileWizard() {
               />
               <span>Has criminal record</span>
             </label>
-            <label className="field">
-              <span>Dependents</span>
-              <input type="number" value={draft.dependents} onChange={handleNumber("dependents")} />
-            </label>
+            {tier === "premium" ? (
+              <label className="field">
+                <span>Dependents</span>
+                <input type="number" value={draft.dependents} onChange={handleNumber("dependents")} />
+              </label>
+            ) : (
+              <div className="field-span-2">
+                <PremiumGateCard
+                  title="Dependents"
+                  description="Starter keeps the profile lean. Premium adds dependent-aware planning so pathways can account for household complexity."
+                />
+              </div>
+            )}
           </div>
         ) : null}
 
         {stepIndex === 3 ? (
           <div className="stack-md">
             <div className="subtle-card">
-              <strong>Subscription tier</strong>
-              <div className="actions-row">
-                <button
-                  className={`button ${tier === "starter" ? "primary" : "secondary"}`}
-                  onClick={() => setTier("starter")}
-                  type="button"
-                >
-                  Starter
-                </button>
-                <button
-                  className={`button ${tier === "premium" ? "primary" : "secondary"}`}
-                  onClick={() => setTier("premium")}
-                  type="button"
-                >
-                  Premium
-                </button>
-              </div>
+              <strong>Current plan</strong>
+              <p className="muted">
+                You are viewing the <strong>{tier}</strong> experience.
+              </p>
+              {tier === "starter" ? (
+                <ul className="compact-list">
+                  <li>Create a profile</li>
+                  <li>Explore countries and visas</li>
+                  <li>Find eligible visas</li>
+                  <li>Save one pathway</li>
+                </ul>
+              ) : (
+                <ul className="compact-list">
+                  <li>Save multiple pathways</li>
+                  <li>Plan for family members and dependents</li>
+                  <li>Unlock insights, explanations, and fix plans</li>
+                  <li>Track documents and application steps</li>
+                </ul>
+              )}
             </div>
 
             <div className="subtle-card">
@@ -255,6 +276,13 @@ export function ProfileWizard() {
                 ))}
               </ul>
             </div>
+
+            {tier === "starter" ? (
+              <PremiumGateCard
+                title="Premium boundaries"
+                description="Use the premium demo account to see multiple pathways, family planning, document detail, fix-this guidance, and full pathway tracking."
+              />
+            ) : null}
 
             <div className="actions-row">
               <button className="button primary" onClick={saveProfile} type="button">

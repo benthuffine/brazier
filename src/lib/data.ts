@@ -30,7 +30,7 @@ export const countries: Country[] = [
     region: "Europe",
     costOfLivingBand: "$$",
     climate: "Mild coastal",
-    heroColors: ["#0F5F63", "#F2A65A"],
+    heroColors: ["#8440F5", "#18C9DD"],
     highlights: ["Strong remote-worker demand", "Family-friendly", "Good rail access"],
   },
   {
@@ -41,7 +41,7 @@ export const countries: Country[] = [
     region: "Europe",
     costOfLivingBand: "$$",
     climate: "Warm Mediterranean",
-    heroColors: ["#7A1C1C", "#F4B400"],
+    heroColors: ["#8F39F4", "#2F63F9"],
     highlights: ["Large expat hubs", "Remote tax interest", "High quality of life"],
   },
   {
@@ -52,7 +52,7 @@ export const countries: Country[] = [
     region: "Europe",
     costOfLivingBand: "$$",
     climate: "Cold winters",
-    heroColors: ["#0C4A6E", "#67E8F9"],
+    heroColors: ["#5460F1", "#20D2DE"],
     highlights: ["Digitized services", "Transparent processes", "Startup ecosystem"],
   },
   {
@@ -63,7 +63,7 @@ export const countries: Country[] = [
     region: "Middle East",
     costOfLivingBand: "$$$",
     climate: "Hot desert",
-    heroColors: ["#0B5D3B", "#D95C48"],
+    heroColors: ["#6E46EF", "#19BDE0"],
     highlights: ["No income tax", "Large international community", "Fast processing"],
   },
   {
@@ -74,7 +74,7 @@ export const countries: Country[] = [
     region: "Europe",
     costOfLivingBand: "$$$",
     climate: "Temperate seasons",
-    heroColors: ["#151515", "#C08418"],
+    heroColors: ["#5B51EC", "#2C6AE8"],
     highlights: ["Strong job market", "Path to residency", "Large economy"],
   },
   {
@@ -85,7 +85,7 @@ export const countries: Country[] = [
     region: "Central America",
     costOfLivingBand: "$$",
     climate: "Tropical",
-    heroColors: ["#0D3F8F", "#E54B4B"],
+    heroColors: ["#9836F3", "#1FCFDF"],
     highlights: ["Warm climate", "Nature access", "Popular with remote workers"],
   },
 ];

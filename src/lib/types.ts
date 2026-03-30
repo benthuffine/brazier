@@ -1,4 +1,6 @@
 export type SubscriptionTier = "starter" | "premium";
+export type UserRole = "admin" | "user";
+export type UserSeedKey = "admin_demo" | "starter_demo" | "premium_demo";
 
 export type EducationLevel =
   | "high_school"
@@ -137,6 +139,26 @@ export interface AppStateData {
   countries: Country[];
   visas: Visa[];
 }
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  tier: SubscriptionTier;
+  seedKey?: UserSeedKey;
+}
+
+export type AppMutation =
+  | { type: "update_profile"; payload: Partial<UserProfile> }
+  | { type: "set_tier"; payload: { tier: SubscriptionTier } }
+  | { type: "start_pathway"; payload: { visaId: string } }
+  | { type: "toggle_step"; payload: { pathwayId: string; stepId: string } }
+  | { type: "toggle_document"; payload: { pathwayId: string; documentId: string } }
+  | { type: "dismiss_notification"; payload: { notificationId: string } }
+  | { type: "mark_notification_read"; payload: { notificationId: string } }
+  | { type: "update_visa"; payload: { visaId: string; patch: Partial<Visa> } }
+  | { type: "reset_demo" };
 
 export interface RequirementResult {
   requirement: Requirement;

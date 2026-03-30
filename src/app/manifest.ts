@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Visa matching and pathway tracking MVP for cross-platform mobile and desktop use.",
     start_url: "/app",
     display: "standalone",
-    background_color: "#f5efe1",
-    theme_color: "#0f5f63",
+    background_color: "#2b66e8",
+    theme_color: "#8a3df5",
     icons: [
       {
         src: "/icon.svg",
