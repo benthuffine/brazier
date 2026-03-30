@@ -54,6 +54,13 @@ export async function PATCH(request: NextRequest) {
           { status: 409 }
         );
       }
+
+      if (error.message === "conflict") {
+        return NextResponse.json(
+          { error: "Catalog item already exists." },
+          { status: 409 }
+        );
+      }
     }
 
     throw error;

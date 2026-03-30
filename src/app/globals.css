@@ -234,6 +234,12 @@ main {
   color: #4a4fd1;
 }
 
+.button.danger {
+  border: 1px solid rgba(255, 109, 107, 0.18);
+  background: rgba(255, 109, 107, 0.12);
+  color: var(--danger);
+}
+
 .button.ghost {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.3);
@@ -738,6 +744,68 @@ main {
   background: rgba(86, 100, 224, 0.08);
 }
 
+.admin-list-item {
+  border-radius: 18px;
+}
+
+.admin-list-item.dragging {
+  opacity: 0.72;
+}
+
+.admin-list-item.drag-target .list-button {
+  border-color: rgba(24, 201, 221, 0.44);
+  box-shadow: 0 0 0 2px rgba(24, 201, 221, 0.12);
+}
+
+.list-button-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.list-drag-copy {
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+}
+
+.editor-section-grid,
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.rule-group,
+.rule-card {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(245, 247, 255, 0.82);
+}
+
+.rule-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rule-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rule-note {
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  background: rgba(86, 100, 224, 0.08);
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+}
+
 .login-shell {
   display: grid;
   place-items: center;
@@ -784,12 +852,17 @@ main {
     align-items: stretch;
   }
 
+  .rule-header,
   .panel-header,
   .space-between,
   .country-card-top,
   .visa-card-top {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .rule-grid {
+    grid-template-columns: 1fr;
   }
 
   .scroll-row {

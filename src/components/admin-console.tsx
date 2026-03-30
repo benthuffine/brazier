@@ -1,25 +1,372 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { DragEvent, useEffect, useState } from "react";
 
+import { AdminRequirementsEditor } from "@/components/admin-requirements-editor";
 import { useAppState } from "@/components/providers/app-state-provider";
-import { Visa } from "@/lib/types";
+import { PathwayChecklistItem, Requirement, RequirementGroup, Visa } from "@/lib/types";
+
+const blankTemplateVisaId = "__blank__";
+
+interface NewVisaFormState {
+  name: string;
+  countryCode: string;
+  category: string;
+  templateVisaId: string;
+}
+
+const defaultNewVisaForm: NewVisaFormState = {
+  name: "",
+  countryCode: "",
+  category: "Digital Nomad",
+  templateVisaId: blankTemplateVisaId,
+};
+
+function makeLocalId(prefix: string) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildVisaId(countryCode: string, name: string, visas: Visa[]) {
+  const base = [countryCode.toLowerCase(), slugify(name) || "new-visa"].join("-");
+  const existingIds = new Set(visas.map((visa) => visa.id));
+
+  if (!existingIds.has(base)) {
+    return base;
+  }
+
+  let suffix = 2;
+
+  while (existingIds.has(`${base}-${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `${base}-${suffix}`;
+}
+
+function cloneRequirements(requirements: Requirement[], prefix: string) {
+  return requirements.map((requirement, index) => ({
+    ...requirement,
+    id: `${prefix}-req-${index + 1}`,
+  }));
+}
+
+function cloneRequirementGroups(groups: RequirementGroup[], prefix: string) {
+  return groups.map((group, groupIndex) => ({
+    ...group,
+    id: `${prefix}-group-${groupIndex + 1}`,
+    requirements: cloneRequirements(
+      group.requirements,
+      `${prefix}-group-${groupIndex + 1}`
+    ),
+  }));
+}
+
+function cloneChecklistItems(items: PathwayChecklistItem[], prefix: string) {
+  return items.map((item, index) => ({
+    ...item,
+    id: `${prefix}-${index + 1}`,
+  }));
+}
+
+function createVisaFromTemplate(
+  template: Visa,
+  form: NewVisaFormState,
+  visas: Visa[]
+): Visa {
+  const visaId = buildVisaId(form.countryCode, form.name, visas);
+
+  return {
+    ...template,
+    id: visaId,
+    name: form.name.trim(),
+    countryCode: form.countryCode,
+    category: form.category.trim(),
+    isActive: true,
+    baseRequirements: cloneRequirements(template.baseRequirements, `${visaId}-base`),
+    alternativeGroups: cloneRequirementGroups(template.alternativeGroups, visaId),
+    documents: cloneChecklistItems(template.documents, `${visaId}-doc`),
+    steps: cloneChecklistItems(template.steps, `${visaId}-step`),
+    optionalBoosts: [...template.optionalBoosts],
+    premiumInsights: [...template.premiumInsights],
+  };
+}
+
+function createBlankVisa(form: NewVisaFormState, visas: Visa[]): Visa {
+  return {
+    id: buildVisaId(form.countryCode, form.name, visas),
+    name: form.name.trim(),
+    countryCode: form.countryCode,
+    category: form.category.trim(),
+    summary: "",
+    description: "",
+    processingTime: "",
+    baseRequirements: [],
+    alternativeGroups: [],
+    optionalBoosts: [],
+    documents: [],
+    steps: [],
+    premiumInsights: [],
+    isActive: true,
+  };
+}
 
 export function AdminConsole() {
-  const { visas, countries, updateVisa, ready } = useAppState();
-  const [selectedVisaId, setSelectedVisaId] = useState(visas[0]?.id ?? "");
-  const [draft, setDraft] = useState<Visa | null>(visas[0] ?? null);
+  const { visas, countries, createVisa, deleteVisa, reorderVisas, updateVisa, ready } =
+    useAppState();
+  const [selectedVisaId, setSelectedVisaId] = useState("");
+  const [draft, setDraft] = useState<Visa | null>(null);
+  const [newVisaForm, setNewVisaForm] = useState<NewVisaFormState>(defaultNewVisaForm);
+  const [draggedVisaId, setDraggedVisaId] = useState<string | null>(null);
+  const [dropTargetVisaId, setDropTargetVisaId] = useState<string | null>(null);
 
   useEffect(() => {
-    const selected = visas.find((visa) => visa.id === selectedVisaId) ?? visas[0] ?? null;
-    setDraft(selected);
+    if (!countries.length) {
+      return;
+    }
+
+    setNewVisaForm((current) => ({
+      ...current,
+      countryCode: current.countryCode || countries[0]?.code || "",
+      templateVisaId:
+        current.templateVisaId === blankTemplateVisaId ||
+        visas.some((visa) => visa.id === current.templateVisaId)
+          ? current.templateVisaId
+          : blankTemplateVisaId,
+    }));
+  }, [countries, visas]);
+
+  useEffect(() => {
+    if (!visas.length) {
+      setSelectedVisaId("");
+      setDraft(null);
+      return;
+    }
+
+    const selected = selectedVisaId
+      ? visas.find((visa) => visa.id === selectedVisaId)
+      : undefined;
+
+    if (selected) {
+      setDraft(selected);
+      return;
+    }
+
+    setSelectedVisaId(visas[0].id);
+    setDraft(visas[0]);
   }, [selectedVisaId, visas]);
 
-  if (!ready || !draft) {
+  if (!ready) {
     return <div className="panel">Loading admin console…</div>;
   }
 
-  const selectedCountry = countries.find((country) => country.code === draft.countryCode);
+  const selectedCountry = draft
+    ? countries.find((country) => country.code === draft.countryCode)
+    : null;
+  const canCreateVisa =
+    newVisaForm.name.trim().length > 0 &&
+    newVisaForm.countryCode.length > 0 &&
+    newVisaForm.category.trim().length > 0;
+
+  const updateDraftValue = <K extends keyof Visa>(field: K, value: Visa[K]) => {
+    setDraft((current) => (current ? { ...current, [field]: value } : current));
+  };
+
+  const updateStringList = (
+    field: "optionalBoosts" | "premiumInsights",
+    index: number,
+    value: string
+  ) => {
+    setDraft((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const nextValues = current[field].map((entry, entryIndex) =>
+        entryIndex === index ? value : entry
+      );
+
+      return {
+        ...current,
+        [field]: nextValues,
+      };
+    });
+  };
+
+  const addStringListItem = (field: "optionalBoosts" | "premiumInsights") => {
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            [field]: [...current[field], ""],
+          }
+        : current
+    );
+  };
+
+  const removeStringListItem = (
+    field: "optionalBoosts" | "premiumInsights",
+    index: number
+  ) => {
+    setDraft((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [field]: current[field].filter((_, entryIndex) => entryIndex !== index),
+      };
+    });
+  };
+
+  const updateChecklistItem = (
+    field: "documents" | "steps",
+    index: number,
+    patch: Partial<PathwayChecklistItem>
+  ) => {
+    setDraft((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [field]: current[field].map((item, itemIndex) =>
+          itemIndex === index ? { ...item, ...patch } : item
+        ),
+      };
+    });
+  };
+
+  const addChecklistItem = (field: "documents" | "steps") => {
+    const nextItem: PathwayChecklistItem = {
+      id: makeLocalId(field === "documents" ? "doc" : "step"),
+      title: "",
+      description: "",
+    };
+
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            [field]: [...current[field], nextItem],
+          }
+        : current
+    );
+  };
+
+  const removeChecklistItem = (field: "documents" | "steps", index: number) => {
+    setDraft((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [field]: current[field].filter((_, itemIndex) => itemIndex !== index),
+      };
+    });
+  };
+
+  const handleCreateVisa = () => {
+    if (!canCreateVisa) {
+      return;
+    }
+
+    const templateVisa = visas.find((visa) => visa.id === newVisaForm.templateVisaId);
+    const nextVisa =
+      newVisaForm.templateVisaId === blankTemplateVisaId || !templateVisa
+        ? createBlankVisa(newVisaForm, visas)
+        : createVisaFromTemplate(templateVisa, newVisaForm, visas);
+
+    createVisa(nextVisa);
+    setSelectedVisaId(nextVisa.id);
+    setDraft(nextVisa);
+    setNewVisaForm((current) => ({
+      ...current,
+      name: "",
+    }));
+  };
+
+  const handleArchiveToggle = () => {
+    if (!draft) {
+      return;
+    }
+
+    const nextDraft = {
+      ...draft,
+      isActive: !draft.isActive,
+    };
+
+    setDraft(nextDraft);
+    updateVisa(nextDraft.id, nextDraft);
+  };
+
+  const handleDeleteSelectedVisa = () => {
+    if (!draft) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete "${draft.name}"? This also removes saved pathways tied to it.`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    const currentIndex = visas.findIndex((visa) => visa.id === draft.id);
+    const nextSelectedVisa = visas[currentIndex + 1] ?? visas[currentIndex - 1] ?? null;
+
+    setSelectedVisaId(nextSelectedVisa?.id ?? "");
+    setDraft(nextSelectedVisa);
+    deleteVisa(draft.id);
+  };
+
+  const buildReorderedVisaIds = (sourceId: string, targetId: string) => {
+    const orderedIds = visas.map((visa) => visa.id);
+    const sourceIndex = orderedIds.indexOf(sourceId);
+    const targetIndex = orderedIds.indexOf(targetId);
+
+    if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+      return null;
+    }
+
+    const nextIds = [...orderedIds];
+    const [movedId] = nextIds.splice(sourceIndex, 1);
+    nextIds.splice(targetIndex, 0, movedId);
+
+    return nextIds;
+  };
+
+  const handleDragStart = (event: DragEvent<HTMLDivElement>, visaId: string) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", visaId);
+    setDraggedVisaId(visaId);
+  };
+
+  const handleDrop = (targetVisaId: string) => {
+    if (!draggedVisaId) {
+      return;
+    }
+
+    const nextIds = buildReorderedVisaIds(draggedVisaId, targetVisaId);
+
+    setDraggedVisaId(null);
+    setDropTargetVisaId(null);
+
+    if (nextIds) {
+      reorderVisas(nextIds);
+    }
+  };
 
   return (
     <div className="stack-lg admin-shell">
@@ -32,122 +379,406 @@ export function AdminConsole() {
           <span className="pill">Desktop-first</span>
         </div>
         <p className="muted">
-          This is the lightweight editorial surface for the MVP. It proves the
-          data model and editing workflow before wiring in authentication and a
-          real database.
+          Create visas from scratch or clone an existing route, then edit the
+          qualification logic, copy, and workflow details without touching SQLite
+          by hand.
         </p>
       </section>
 
       <div className="admin-grid">
-        <aside className="panel">
-          <div className="stack-sm">
-            {visas.map((visa) => (
+        <aside className="stack-md">
+          <section className="panel">
+            <div className="stack-md">
+              <div>
+                <p className="eyebrow">New visa</p>
+                <h2>Create visa</h2>
+              </div>
+              <label className="field">
+                <span>Visa name</span>
+                <input
+                  placeholder="Portugal Golden Visa"
+                  value={newVisaForm.name}
+                  onChange={(event) =>
+                    setNewVisaForm((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Country</span>
+                <select
+                  value={newVisaForm.countryCode}
+                  onChange={(event) =>
+                    setNewVisaForm((current) => ({
+                      ...current,
+                      countryCode: event.target.value,
+                    }))
+                  }
+                >
+                  {countries.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Category</span>
+                <input
+                  value={newVisaForm.category}
+                  onChange={(event) =>
+                    setNewVisaForm((current) => ({
+                      ...current,
+                      category: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Starting point</span>
+                <select
+                  value={newVisaForm.templateVisaId}
+                  onChange={(event) =>
+                    setNewVisaForm((current) => ({
+                      ...current,
+                      templateVisaId: event.target.value,
+                    }))
+                  }
+                >
+                  <option value={blankTemplateVisaId}>Blank visa</option>
+                  {visas.map((visa) => (
+                    <option key={visa.id} value={visa.id}>
+                      {visa.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
-                key={visa.id}
-                className={`list-button${selectedVisaId === visa.id ? " active" : ""}`}
-                onClick={() => setSelectedVisaId(visa.id)}
+                className="button primary"
+                disabled={!canCreateVisa}
+                onClick={handleCreateVisa}
                 type="button"
               >
-                <strong>{visa.name}</strong>
-                <span className="muted">
-                  {countries.find((country) => country.code === visa.countryCode)?.name}
-                </span>
+                Create and open
               </button>
-            ))}
-          </div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="stack-sm">
+              {visas.map((visa) => (
+                <div
+                  key={visa.id}
+                  className={`admin-list-item${draggedVisaId === visa.id ? " dragging" : ""}${dropTargetVisaId === visa.id ? " drag-target" : ""}`}
+                  draggable
+                  onDragEnd={() => {
+                    setDraggedVisaId(null);
+                    setDropTargetVisaId(null);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    if (draggedVisaId && draggedVisaId !== visa.id) {
+                      setDropTargetVisaId(visa.id);
+                    }
+                  }}
+                  onDragStart={(event) => handleDragStart(event, visa.id)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleDrop(visa.id);
+                  }}
+                >
+                  <button
+                    className={`list-button${selectedVisaId === visa.id ? " active" : ""}`}
+                    onClick={() => setSelectedVisaId(visa.id)}
+                    type="button"
+                  >
+                    <strong>{visa.name}</strong>
+                    <div className="list-button-meta">
+                      <span className="muted">
+                        {countries.find((country) => country.code === visa.countryCode)?.name}
+                      </span>
+                      <span className="tag">{visa.isActive ? "Active" : "Archived"}</span>
+                    </div>
+                    <span className="list-drag-copy">Drag to reorder</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
         </aside>
 
         <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                {selectedCountry?.flag} {selectedCountry?.name}
-              </p>
-              <h2>{draft.name}</h2>
+          {draft ? (
+            <>
+              <div className="panel-header">
+                <div>
+                  <p className="eyebrow">
+                    {selectedCountry?.flag} {selectedCountry?.name}
+                  </p>
+                  <h2>{draft.name}</h2>
+                </div>
+                <span className="pill">{draft.id}</span>
+              </div>
+
+              <div className="form-grid">
+                <label className="field">
+                  <span>Visa name</span>
+                  <input
+                    value={draft.name}
+                    onChange={(event) => updateDraftValue("name", event.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>Category</span>
+                  <input
+                    value={draft.category}
+                    onChange={(event) => updateDraftValue("category", event.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>Country</span>
+                  <select
+                    value={draft.countryCode}
+                    onChange={(event) => updateDraftValue("countryCode", event.target.value)}
+                  >
+                    {countries.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.flag} {country.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Processing time</span>
+                  <input
+                    value={draft.processingTime}
+                    onChange={(event) =>
+                      updateDraftValue("processingTime", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="field field-span-2">
+                  <span>Summary</span>
+                  <textarea
+                    value={draft.summary}
+                    onChange={(event) => updateDraftValue("summary", event.target.value)}
+                    rows={3}
+                  />
+                </label>
+                <label className="field field-span-2">
+                  <span>Description</span>
+                  <textarea
+                    value={draft.description}
+                    onChange={(event) =>
+                      updateDraftValue("description", event.target.value)
+                    }
+                    rows={5}
+                  />
+                </label>
+                <label className="field checkbox-field">
+                  <input
+                    checked={draft.isActive}
+                    onChange={(event) => updateDraftValue("isActive", event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>Visa active</span>
+                </label>
+              </div>
+
+              <div className="actions-row">
+                <button
+                  className="button primary"
+                  onClick={() => updateVisa(draft.id, draft)}
+                  type="button"
+                >
+                  Save changes
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={handleArchiveToggle}
+                  type="button"
+                >
+                  {draft.isActive ? "Archive visa" : "Restore visa"}
+                </button>
+                <button
+                  className="button danger"
+                  onClick={handleDeleteSelectedVisa}
+                  type="button"
+                >
+                  Delete visa
+                </button>
+              </div>
+
+              <AdminRequirementsEditor
+                alternativeGroups={draft.alternativeGroups}
+                baseRequirements={draft.baseRequirements}
+                onAlternativeGroupsChange={(groups) =>
+                  updateDraftValue("alternativeGroups", groups)
+                }
+                onBaseRequirementsChange={(requirements) =>
+                  updateDraftValue("baseRequirements", requirements)
+                }
+              />
+
+              <div className="two-up">
+                <article className="subtle-card stack-md">
+                  <div className="space-between">
+                    <strong>Optional boosts</strong>
+                    <button
+                      className="button ghost"
+                      onClick={() => addStringListItem("optionalBoosts")}
+                      type="button"
+                    >
+                      Add boost
+                    </button>
+                  </div>
+                  {draft.optionalBoosts.map((boost, index) => (
+                    <div key={`${draft.id}-boost-${index}`} className="stack-sm">
+                      <input
+                        value={boost}
+                        onChange={(event) =>
+                          updateStringList("optionalBoosts", index, event.target.value)
+                        }
+                      />
+                      <button
+                        className="button ghost"
+                        onClick={() => removeStringListItem("optionalBoosts", index)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </article>
+
+                <article className="subtle-card stack-md">
+                  <div className="space-between">
+                    <strong>Premium insights</strong>
+                    <button
+                      className="button ghost"
+                      onClick={() => addStringListItem("premiumInsights")}
+                      type="button"
+                    >
+                      Add insight
+                    </button>
+                  </div>
+                  {draft.premiumInsights.map((insight, index) => (
+                    <div key={`${draft.id}-insight-${index}`} className="stack-sm">
+                      <textarea
+                        value={insight}
+                        onChange={(event) =>
+                          updateStringList("premiumInsights", index, event.target.value)
+                        }
+                        rows={3}
+                      />
+                      <button
+                        className="button ghost"
+                        onClick={() => removeStringListItem("premiumInsights", index)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </article>
+              </div>
+
+              <div className="two-up">
+                <article className="subtle-card stack-md">
+                  <div className="space-between">
+                    <strong>Documents</strong>
+                    <button
+                      className="button ghost"
+                      onClick={() => addChecklistItem("documents")}
+                      type="button"
+                    >
+                      Add document
+                    </button>
+                  </div>
+                  {draft.documents.map((document, index) => (
+                    <div key={document.id} className="stack-sm">
+                      <input
+                        placeholder="Document title"
+                        value={document.title}
+                        onChange={(event) =>
+                          updateChecklistItem("documents", index, {
+                            title: event.target.value,
+                          })
+                        }
+                      />
+                      <textarea
+                        placeholder="Document description"
+                        rows={3}
+                        value={document.description}
+                        onChange={(event) =>
+                          updateChecklistItem("documents", index, {
+                            description: event.target.value,
+                          })
+                        }
+                      />
+                      <button
+                        className="button ghost"
+                        onClick={() => removeChecklistItem("documents", index)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </article>
+
+                <article className="subtle-card stack-md">
+                  <div className="space-between">
+                    <strong>Application steps</strong>
+                    <button
+                      className="button ghost"
+                      onClick={() => addChecklistItem("steps")}
+                      type="button"
+                    >
+                      Add step
+                    </button>
+                  </div>
+                  {draft.steps.map((step, index) => (
+                    <div key={step.id} className="stack-sm">
+                      <input
+                        placeholder="Step title"
+                        value={step.title}
+                        onChange={(event) =>
+                          updateChecklistItem("steps", index, {
+                            title: event.target.value,
+                          })
+                        }
+                      />
+                      <textarea
+                        placeholder="Step description"
+                        rows={3}
+                        value={step.description}
+                        onChange={(event) =>
+                          updateChecklistItem("steps", index, {
+                            description: event.target.value,
+                          })
+                        }
+                      />
+                      <button
+                        className="button ghost"
+                        onClick={() => removeChecklistItem("steps", index)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </article>
+              </div>
+            </>
+          ) : (
+            <div className="group-note">
+              No visa selected. Create a new visa from the sidebar, or drag the
+              existing catalog order there once records are present.
             </div>
-          </div>
-
-          <div className="form-grid">
-            <label className="field">
-              <span>Summary</span>
-              <textarea
-                value={draft.summary}
-                onChange={(event) =>
-                  setDraft((current) =>
-                    current ? { ...current, summary: event.target.value } : current
-                  )
-                }
-                rows={3}
-              />
-            </label>
-            <label className="field">
-              <span>Processing time</span>
-              <input
-                value={draft.processingTime}
-                onChange={(event) =>
-                  setDraft((current) =>
-                    current ? { ...current, processingTime: event.target.value } : current
-                  )
-                }
-              />
-            </label>
-            <label className="field field-span-2">
-              <span>Description</span>
-              <textarea
-                value={draft.description}
-                onChange={(event) =>
-                  setDraft((current) =>
-                    current ? { ...current, description: event.target.value } : current
-                  )
-                }
-                rows={5}
-              />
-            </label>
-            <label className="field checkbox-field">
-              <input
-                checked={draft.isActive}
-                onChange={(event) =>
-                  setDraft((current) =>
-                    current ? { ...current, isActive: event.target.checked } : current
-                  )
-                }
-                type="checkbox"
-              />
-              <span>Visa active</span>
-            </label>
-          </div>
-
-          <div className="actions-row">
-            <button
-              className="button primary"
-              onClick={() => updateVisa(draft.id, draft)}
-              type="button"
-            >
-              Save changes
-            </button>
-          </div>
-
-          <div className="two-up">
-            <article className="subtle-card">
-              <strong>Requirement groups</strong>
-              <ul className="compact-list">
-                {draft.baseRequirements.map((requirement) => (
-                  <li key={requirement.id}>{requirement.label}</li>
-                ))}
-                {draft.alternativeGroups.map((group) => (
-                  <li key={group.id}>{group.label}</li>
-                ))}
-              </ul>
-            </article>
-            <article className="subtle-card">
-              <strong>Premium insights</strong>
-              <ul className="compact-list">
-                {draft.premiumInsights.map((insight) => (
-                  <li key={insight}>{insight}</li>
-                ))}
-              </ul>
-            </article>
-          </div>
+          )}
         </section>
       </div>
     </div>

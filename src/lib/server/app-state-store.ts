@@ -104,6 +104,39 @@ function createPathwayNotification(visaName: string, visaId: string): AppNotific
   };
 }
 
+function deleteVisaReferences(connection: ReturnType<typeof getDatabase>, visaId: string) {
+  connection.prepare("DELETE FROM pathways WHERE visa_id = ?").run(visaId);
+  connection
+    .prepare("DELETE FROM notifications WHERE value LIKE ?")
+    .run(`%"visaId":"${visaId}"%`);
+}
+
+function reorderCatalogVisas(
+  connection: ReturnType<typeof getDatabase>,
+  orderedVisaIds: string[]
+) {
+  const existingRows = connection
+    .prepare("SELECT id, sort_order FROM visas ORDER BY sort_order ASC")
+    .all() as Array<{ id: string; sort_order: number }>;
+  const existingIds = existingRows.map((row) => row.id);
+  const seen = new Set<string>();
+  const nextOrder = orderedVisaIds.filter((id) => {
+    const include = existingIds.includes(id) && !seen.has(id);
+    if (include) {
+      seen.add(id);
+    }
+    return include;
+  });
+  const remaining = existingIds.filter((id) => !seen.has(id));
+  const updateSortOrder = connection.prepare(
+    "UPDATE visas SET sort_order = ? WHERE id = ?"
+  );
+
+  [...nextOrder, ...remaining].forEach((id, index) => {
+    updateSortOrder.run(index, id);
+  });
+}
+
 function resetUserState(connection: ReturnType<typeof getDatabase>, user: AuthUser) {
   const seedUser = user.seedKey ? getDemoUserBySeedKey(user.seedKey) : null;
   const nextProfile = seedUser?.profile ?? initialState.profile;
@@ -268,6 +301,49 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           ...notification,
           read: true,
         });
+        break;
+      }
+      case "create_visa": {
+        if (user.role !== "admin") {
+          throw new Error("forbidden");
+        }
+
+        const existingVisa = connection
+          .prepare("SELECT id FROM visas WHERE id = ?")
+          .get(mutation.payload.visa.id) as { id: string } | undefined;
+
+        if (existingVisa) {
+          throw new Error("conflict");
+        }
+
+        const sortOrderRow = connection
+          .prepare("SELECT COALESCE(MAX(sort_order), -1) AS max_sort_order FROM visas")
+          .get() as { max_sort_order: number };
+
+        connection
+          .prepare("INSERT INTO visas (id, sort_order, value) VALUES (?, ?, ?)")
+          .run(
+            mutation.payload.visa.id,
+            sortOrderRow.max_sort_order + 1,
+            serialize(mutation.payload.visa)
+          );
+        break;
+      }
+      case "delete_visa": {
+        if (user.role !== "admin") {
+          throw new Error("forbidden");
+        }
+
+        deleteVisaReferences(connection, mutation.payload.visaId);
+        connection.prepare("DELETE FROM visas WHERE id = ?").run(mutation.payload.visaId);
+        break;
+      }
+      case "reorder_visas": {
+        if (user.role !== "admin") {
+          throw new Error("forbidden");
+        }
+
+        reorderCatalogVisas(connection, mutation.payload.orderedVisaIds);
         break;
       }
       case "update_visa": {

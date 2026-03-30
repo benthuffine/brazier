@@ -28,6 +28,9 @@ interface AppStateContextValue extends AppStateData {
   toggleDocument: (pathwayId: string, documentId: string) => void;
   dismissNotification: (notificationId: string) => void;
   markNotificationRead: (notificationId: string) => void;
+  createVisa: (visa: Visa) => void;
+  deleteVisa: (visaId: string) => void;
+  reorderVisas: (orderedVisaIds: string[]) => void;
   updateVisa: (visaId: string, patch: Partial<Visa>) => void;
   resetDemo: () => void;
 }
@@ -162,6 +165,30 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           payload: { notificationId },
         }).catch((error) => {
           console.error("Could not mark notification as read", error);
+        });
+      },
+      createVisa: (visa) => {
+        void commitMutation({
+          type: "create_visa",
+          payload: { visa },
+        }).catch((error) => {
+          console.error("Could not create visa", error);
+        });
+      },
+      deleteVisa: (visaId) => {
+        void commitMutation({
+          type: "delete_visa",
+          payload: { visaId },
+        }).catch((error) => {
+          console.error("Could not delete visa", error);
+        });
+      },
+      reorderVisas: (orderedVisaIds) => {
+        void commitMutation({
+          type: "reorder_visas",
+          payload: { orderedVisaIds },
+        }).catch((error) => {
+          console.error("Could not reorder visas", error);
         });
       },
       updateVisa: (visaId, patch) => {

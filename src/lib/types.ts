@@ -157,6 +157,9 @@ export type AppMutation =
   | { type: "toggle_document"; payload: { pathwayId: string; documentId: string } }
   | { type: "dismiss_notification"; payload: { notificationId: string } }
   | { type: "mark_notification_read"; payload: { notificationId: string } }
+  | { type: "create_visa"; payload: { visa: Visa } }
+  | { type: "delete_visa"; payload: { visaId: string } }
+  | { type: "reorder_visas"; payload: { orderedVisaIds: string[] } }
   | { type: "update_visa"; payload: { visaId: string; patch: Partial<Visa> } }
   | { type: "reset_demo" };
 
