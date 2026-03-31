@@ -4,6 +4,8 @@
 
 Two app proposals under review: **Formy** (golf swing analysis) and **Migrately** (visa matching & application tracking). The proposer is seeking a technical partner to build these products, potentially in exchange for equity. This document captures technical evaluation, business considerations, and questions to resolve before committing.
 
+**Status as of 2026-03-31:** Decision made to build Migrately first. An MVP is underway. First meeting with the proposer has not yet happened -- key business/financial questions remain unresolved. Building in good faith in the meantime, but compensation structure must be agreed before significant additional scope is committed to.
+
 ---
 
 ## Proposal Evaluations
@@ -62,9 +64,45 @@ Technically straightforward: a rules engine + profile matching + CRUD admin. The
 
 | Phase | Key Work | Scope |
 |-------|----------|-------|
-| MVP | Auth, onboarding wizard, profile, matching engine, browse, one pathway, tiers, admin | 2-4 months |
-| Data Seeding | Research and enter visa data for 10-15 countries (parallel with dev) | 2-4 weeks dedicated research |
-| Full Product | Notifications, family members, full pathways, payments, email, 50+ countries, polish | Additional 3-5 months |
+| ~~MVP Core~~ | ~~Auth, onboarding wizard, profile, matching engine, browse, one pathway, tiers, admin~~ | ~~2-4 months~~ **Done** |
+| Data Seeding | Research and enter visa data for 10-15 countries (parallel with dev) | 2-4 weeks dedicated research -- **unstarted, owner unresolved** |
+| Full Product | Signup flow, payments, real database, email notifications, 50+ countries, polish | 2-3 additional months |
+
+---
+
+## Migrately MVP -- Current Build Status
+
+A functional MVP skeleton exists as of 2026-03-31. Stack: **Next.js 15 + React 19 + TypeScript + SQLite + PWA**.
+
+### What's Built
+
+- **Auth:** Session-based login, role-based access (user/admin), 3 demo accounts (admin, starter, premium). No signup flow yet.
+- **Matching engine:** Full eligibility scoring against structured requirements. Supports conditional requirement groups (e.g., education OR experience route), 9 operator types.
+- **Profile wizard:** 4-step onboarding collecting 17 profile fields with live visa recalculation.
+- **Home dashboard:** Eligible visa count, profile completion %, matched visa cards, stretch visas.
+- **Pathways board:** In-progress pathway tracking with requirements, documents, and steps. Progress bars. Premium gating enforced.
+- **Notifications:** In-app feed with read/dismiss, filter by type.
+- **Admin console:** Full visa CRUD -- create, edit, reorder, clone, toggle visibility. Inline requirement group editor with conditional logic.
+- **Free/premium tier enforcement:** Starter limited to 1 pathway. Premium gates unlocked: multiple pathways, step tracking, document details, insights, fix-this-to-qualify (UI present), family members.
+- **PWA:** Installable on mobile, service worker with app shell caching.
+- **Visa data:** 6 routes seeded -- Portugal D8, Spain Digital Nomad, Estonia Digital Nomad, UAE Virtual Work Residence, Germany Opportunity Card, Costa Rica Digital Nomad.
+
+### What's Not Yet Built
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| User signup | High -- blocker for real users | Currently demo accounts only |
+| Real database (Supabase/PostgreSQL) | High -- blocker for deployment | SQLite is local/dev only |
+| Payment integration (Stripe) | High -- required for revenue | Tier is manually set via admin |
+| Deployment (Vercel) | High -- needed to show proposer | Nothing is live yet |
+| Email notifications | Medium | In-app only currently |
+| More visa data (20-30+ visas) | Medium -- required for real value | Only 6 routes seeded |
+| Password reset / magic link | Medium | No account recovery exists |
+| Social auth (Google/Apple) | Low-medium | Nice to have for conversion |
+| Fix-this-to-qualify logic | Low | UI present, backend not wired |
+| Family member profiles | Low | Premium feature, deferred |
+| Offline mode | Low | SW caches shell only |
+| Tests | Low | None exist yet |
 
 ---
 
@@ -142,10 +180,12 @@ These are organized by priority. The answers to the first section determine whet
 
 ### Technical Decisions
 
-19. **Web app, native app, or both?** The proposals say "web/native TBD" -- this is a major scope and cost decision. (Recommendation: web-first for MVP, both apps.)
-20. **For Formy: is the video processing client-side or server-side?** Client-side (MediaPipe JS/on-device) has privacy benefits but device-performance constraints. Server-side adds latency and infrastructure cost but is more controllable.
-21. **What is the admin panel scope?** Both proposals include admin panels -- are these day-one requirements or can they be deferred in favor of direct database seeding initially?
-22. **Is there an existing codebase, or is this from scratch?**
+19. ~~**Web app, native app, or both?**~~ **Decided:** PWA (Progressive Web App) via Next.js. Mobile-installable without app store. This defers native app complexity while still working on iOS and Android. App store submissions can come later.
+20. **For Formy: is the video processing client-side or server-side?** Client-side (MediaPipe JS/on-device) has privacy benefits but device-performance constraints. Server-side adds latency and infrastructure cost but is more controllable. *(Formy is deferred -- not relevant yet.)*
+21. ~~**What is the admin panel scope?**~~ **Decided:** Admin panel is built and functional from day one -- necessary for the proposer to enter and manage visa data without developer involvement.
+22. ~~**Is there an existing codebase, or is this from scratch?**~~ **Answered:** MVP codebase is underway (see Build Status above).
+23. **Which database/backend for production?** SQLite is dev-only. Supabase (PostgreSQL + Auth) is the likely migration target per the original proposal. Needs to be decided before deployment.
+24. **Who pays for infrastructure?** Hosting (Vercel), database (Supabase), email delivery, Stripe fees -- these have real costs from day one. Must be resolved before going live.
 
 ### Legal & Compliance
 
@@ -158,19 +198,32 @@ These are organized by priority. The answers to the first section determine whet
 
 ## My Position Going In
 
-- Interested in consulting, but need clarity on compensation before committing to build.
+- Already building Migrately in good faith, but compensation must be agreed before committing further scope.
 - Not willing to work for pure equity without understanding the full picture: funding, timeline, roles, and legal structure.
 - If equity-only, the stake must reflect co-founder-level contribution and there must be a clear path to revenue or funding.
 - Open to hybrid models (reduced rate + equity, milestone-based).
-- Technically, Migrately is the safer and faster build. Formy needs a proof-of-concept before any commitment.
-- Want to understand what the proposer brings to the table beyond the spec document -- ongoing contribution matters as much as the idea.
+- The MVP core is largely done. Remaining work (payments, real DB, deployment, more visa data) is the harder, more valuable part -- that work should be scoped and compensated explicitly.
+- Formy remains on hold pending the Migrately evaluation and the outcome of this meeting.
+- Want to understand what the proposer brings beyond the spec: ongoing visa data research, user acquisition, design decisions. These directly affect build scope.
 
 ---
 
-## Next Steps After the Call
+## Next Steps
 
-- [ ] Evaluate answers to dealbreaker questions
-- [ ] If moving forward, agree on compensation structure in writing
-- [ ] If Formy is chosen: schedule a 1-2 week PoC spike before full commitment
-- [ ] If Migrately is chosen: align on which countries/visas to seed for MVP
-- [ ] Get legal agreements in place before any code is written
+### Before the Call
+- [ ] Review this document and tighten the dealbreaker questions
+- [ ] Have a clear number in mind for minimum acceptable equity stake (if equity-only) and minimum acceptable rate (if hybrid)
+
+### During the Call -- Must Cover
+- [ ] Dealbreaker questions 1-6 (funding, equity split, infrastructure budget, legal entity, time commitment, hybrid openness)
+- [ ] Who owns the visa data research problem (question 8)
+- [ ] Go-to-market basics (question 9)
+- [ ] Infrastructure cost ownership (new question 24)
+
+### After the Call
+- [ ] Evaluate answers to dealbreaker questions -- walk away if unresolved
+- [ ] Agree on compensation structure in writing before any further build work
+- [ ] Align on which countries/visas to seed for MVP launch (proposer's job)
+- [ ] Decide on production database (Supabase migration vs. other)
+- [ ] Get legal agreements in place (IP ownership, equity vesting, exit terms)
+- [ ] Plan deployment to Vercel so proposer can see and share the app
