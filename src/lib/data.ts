@@ -1,4 +1,5 @@
 import { AppStateData, Country, UserProfile, Visa } from "@/lib/types";
+import { createPendingVisaSource } from "@/lib/visa-source";
 
 export const defaultProfile: UserProfile = {
   fullName: "Taylor Demo",
@@ -150,6 +151,7 @@ export const visas: Visa[] = [
       "Starter users can see basic qualification, but premium can surface why specific evidence is weak.",
       "Applicants with family members should front-load housing and insurance planning.",
     ],
+    source: createPendingVisaSource(),
     isActive: true,
   },
   {
@@ -233,6 +235,7 @@ export const visas: Visa[] = [
       "This is a good demo visa for conditional requirements because the path can be education or experience.",
       "Premium should explain which route is strongest for the user profile instead of only showing a pass/fail result.",
     ],
+    source: createPendingVisaSource(),
     isActive: true,
   },
   {
@@ -283,6 +286,7 @@ export const visas: Visa[] = [
     premiumInsights: [
       "This route is easy to match but benefits from premium explanations around proof quality.",
     ],
+    source: createPendingVisaSource(),
     isActive: true,
   },
   {
@@ -333,6 +337,7 @@ export const visas: Visa[] = [
     premiumInsights: [
       "This route is a strong upsell candidate because cost of living and supporting proof need more explanation.",
     ],
+    source: createPendingVisaSource(),
     isActive: true,
   },
   {
@@ -415,6 +420,7 @@ export const visas: Visa[] = [
     premiumInsights: [
       "The route is ideal for showing 'fix this to qualify' because the app can suggest concrete gaps like savings or language prep.",
     ],
+    source: createPendingVisaSource(),
     isActive: true,
   },
   {
@@ -465,6 +471,7 @@ export const visas: Visa[] = [
     premiumInsights: [
       "This route is a good free-to-premium conversion lever because the base qualification is easy but the move logistics are not.",
     ],
+    source: createPendingVisaSource(),
     isActive: true,
   },
 ];

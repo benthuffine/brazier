@@ -94,6 +94,20 @@ export interface Country {
   highlights: string[];
 }
 
+export type VisaReviewStatus =
+  | "pending_source"
+  | "needs_review"
+  | "reviewed"
+  | "stale";
+
+export interface VisaSource {
+  authorityName: string;
+  officialUrl: string;
+  lastReviewedAt: string;
+  reviewStatus: VisaReviewStatus;
+  reviewNotes: string;
+}
+
 export interface Visa {
   id: string;
   name: string;
@@ -108,8 +122,13 @@ export interface Visa {
   documents: PathwayChecklistItem[];
   steps: PathwayChecklistItem[];
   premiumInsights: string[];
+  source: VisaSource;
   isActive: boolean;
 }
+
+export type VisaPatch = Partial<Omit<Visa, "source">> & {
+  source?: Partial<VisaSource>;
+};
 
 export interface Pathway {
   id: string;
@@ -160,7 +179,7 @@ export type AppMutation =
   | { type: "create_visa"; payload: { visa: Visa } }
   | { type: "delete_visa"; payload: { visaId: string } }
   | { type: "reorder_visas"; payload: { orderedVisaIds: string[] } }
-  | { type: "update_visa"; payload: { visaId: string; patch: Partial<Visa> } }
+  | { type: "update_visa"; payload: { visaId: string; patch: VisaPatch } }
   | { type: "reset_demo" };
 
 export interface RequirementResult {

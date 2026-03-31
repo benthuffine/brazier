@@ -4,7 +4,14 @@ import { DragEvent, useEffect, useState } from "react";
 
 import { AdminRequirementsEditor } from "@/components/admin-requirements-editor";
 import { useAppState } from "@/components/providers/app-state-provider";
-import { PathwayChecklistItem, Requirement, RequirementGroup, Visa } from "@/lib/types";
+import {
+  PathwayChecklistItem,
+  Requirement,
+  RequirementGroup,
+  Visa,
+  VisaSource,
+} from "@/lib/types";
+import { createPendingVisaSource, getVisaReviewStatusLabel } from "@/lib/visa-source";
 
 const blankTemplateVisaId = "__blank__";
 
@@ -96,6 +103,7 @@ function createVisaFromTemplate(
     steps: cloneChecklistItems(template.steps, `${visaId}-step`),
     optionalBoosts: [...template.optionalBoosts],
     premiumInsights: [...template.premiumInsights],
+    source: createPendingVisaSource(),
   };
 }
 
@@ -114,6 +122,7 @@ function createBlankVisa(form: NewVisaFormState, visas: Visa[]): Visa {
     documents: [],
     steps: [],
     premiumInsights: [],
+    source: createPendingVisaSource(),
     isActive: true,
   };
 }
@@ -177,6 +186,23 @@ export function AdminConsole() {
 
   const updateDraftValue = <K extends keyof Visa>(field: K, value: Visa[K]) => {
     setDraft((current) => (current ? { ...current, [field]: value } : current));
+  };
+
+  const updateSourceValue = <K extends keyof VisaSource>(
+    field: K,
+    value: VisaSource[K]
+  ) => {
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            source: {
+              ...current.source,
+              [field]: value,
+            },
+          }
+        : current
+    );
   };
 
   const updateStringList = (
@@ -380,8 +406,8 @@ export function AdminConsole() {
         </div>
         <p className="muted">
           Create visas from scratch or clone an existing route, then edit the
-          qualification logic, copy, and workflow details without touching SQLite
-          by hand.
+          qualification logic, copy, workflow details, and source-review
+          metadata without touching SQLite by hand.
         </p>
       </section>
 
@@ -499,7 +525,14 @@ export function AdminConsole() {
                       <span className="muted">
                         {countries.find((country) => country.code === visa.countryCode)?.name}
                       </span>
-                      <span className="tag">{visa.isActive ? "Active" : "Archived"}</span>
+                      <div className="list-meta-tags">
+                        <span
+                          className={`tag review-tag review-${visa.source.reviewStatus}`}
+                        >
+                          {getVisaReviewStatusLabel(visa.source.reviewStatus)}
+                        </span>
+                        <span className="tag">{visa.isActive ? "Active" : "Archived"}</span>
+                      </div>
                     </div>
                     <span className="list-drag-copy">Drag to reorder</span>
                   </button>
@@ -519,7 +552,12 @@ export function AdminConsole() {
                   </p>
                   <h2>{draft.name}</h2>
                 </div>
-                <span className="pill">{draft.id}</span>
+                <div className="list-meta-tags">
+                  <span className={`tag review-tag review-${draft.source.reviewStatus}`}>
+                    {getVisaReviewStatusLabel(draft.source.reviewStatus)}
+                  </span>
+                  <span className="pill">{draft.id}</span>
+                </div>
               </div>
 
               <div className="form-grid">
@@ -610,6 +648,75 @@ export function AdminConsole() {
                   Delete visa
                 </button>
               </div>
+
+              <article className="subtle-card stack-md">
+                <div className="space-between">
+                  <strong>Source and review</strong>
+                  <span className={`tag review-tag review-${draft.source.reviewStatus}`}>
+                    {getVisaReviewStatusLabel(draft.source.reviewStatus)}
+                  </span>
+                </div>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>Official authority</span>
+                    <input
+                      placeholder="Ministry or immigration authority"
+                      value={draft.source.authorityName}
+                      onChange={(event) =>
+                        updateSourceValue("authorityName", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Review status</span>
+                    <select
+                      value={draft.source.reviewStatus}
+                      onChange={(event) =>
+                        updateSourceValue(
+                          "reviewStatus",
+                          event.target.value as VisaSource["reviewStatus"]
+                        )
+                      }
+                    >
+                      <option value="pending_source">Source pending</option>
+                      <option value="needs_review">Needs review</option>
+                      <option value="reviewed">Reviewed</option>
+                      <option value="stale">Review stale</option>
+                    </select>
+                  </label>
+                  <label className="field field-span-2">
+                    <span>Official URL</span>
+                    <input
+                      placeholder="https://..."
+                      value={draft.source.officialUrl}
+                      onChange={(event) =>
+                        updateSourceValue("officialUrl", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Last reviewed</span>
+                    <input
+                      type="date"
+                      value={draft.source.lastReviewedAt}
+                      onChange={(event) =>
+                        updateSourceValue("lastReviewedAt", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field field-span-2">
+                    <span>Review notes</span>
+                    <textarea
+                      placeholder="Internal review notes, update caveats, or research reminders."
+                      rows={4}
+                      value={draft.source.reviewNotes}
+                      onChange={(event) =>
+                        updateSourceValue("reviewNotes", event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
+              </article>
 
               <AdminRequirementsEditor
                 alternativeGroups={draft.alternativeGroups}

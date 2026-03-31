@@ -9,6 +9,7 @@ import { initialState } from "@/lib/data";
 import { hashPassword } from "@/lib/server/auth-crypto";
 import { demoUsers } from "@/lib/server/demo-users";
 import { AppNotification, Pathway, Visa } from "@/lib/types";
+import { normalizeVisa } from "@/lib/visa-source";
 
 const STORAGE_DIR = path.join(process.cwd(), "storage");
 const DATABASE_PATH = path.join(STORAGE_DIR, "migrately.sqlite");
@@ -80,7 +81,22 @@ function writeCatalog(connection: Database.Database) {
   });
 
   initialState.visas.forEach((visa, index) => {
-    insertVisa.run(visa.id, index, serialize(visa));
+    insertVisa.run(visa.id, index, serialize(normalizeVisa(visa)));
+  });
+}
+
+function migrateCatalog(connection: Database.Database) {
+  const visaRows = connection
+    .prepare("SELECT id, value FROM visas")
+    .all() as Array<{ id: string; value: string }>;
+  const updateVisa = connection.prepare("UPDATE visas SET value = ? WHERE id = ?");
+
+  visaRows.forEach((row) => {
+    const nextValue = serialize(normalizeVisa(parseJson<Visa>(row.value)));
+
+    if (nextValue !== row.value) {
+      updateVisa.run(nextValue, row.id);
+    }
   });
 }
 
@@ -238,6 +254,7 @@ function initializeDatabase(connection: Database.Database) {
     writeCatalog(connection);
   }
 
+  migrateCatalog(connection);
   seedUsers(connection);
 }
 
@@ -265,7 +282,7 @@ export function readCatalog(connection: Database.Database) {
     connection
       .prepare("SELECT value FROM visas ORDER BY sort_order ASC")
       .all() as Array<{ value: string }>
-  ).map((row) => parseJson<Visa>(row.value));
+  ).map((row) => normalizeVisa(parseJson<Visa>(row.value)));
 
   return { countries, visas };
 }

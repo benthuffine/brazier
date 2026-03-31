@@ -8,6 +8,25 @@ import {
   getPathwayProgress,
   getVisaAssessments,
 } from "@/lib/matching";
+import { getVisaReviewStatusLabel } from "@/lib/visa-source";
+
+function formatReviewedDate(value: string) {
+  if (!value) {
+    return "Not reviewed yet";
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(parsed);
+}
 
 export function PathwaysBoard() {
   const {
@@ -123,6 +142,60 @@ export function PathwaysBoard() {
                         description="Starter shows basic pass/fail qualification. Premium explains the logic, conditional route, and what the evidence should look like."
                       />
                     ) : null}
+                  </div>
+                </details>
+
+                <details className="accordion">
+                  <summary>Source and review</summary>
+                  <div className="accordion-content">
+                    <div className="stack-md">
+                      <div className="list-button-meta">
+                        <span
+                          className={`tag review-tag review-${visa.source.reviewStatus}`}
+                        >
+                          {getVisaReviewStatusLabel(visa.source.reviewStatus)}
+                        </span>
+                        <span className="muted">
+                          Last reviewed: {formatReviewedDate(visa.source.lastReviewedAt)}
+                        </span>
+                      </div>
+
+                      <div className="source-grid">
+                        <div className="source-row">
+                          <strong>Authority</strong>
+                          <span>{visa.source.authorityName || "Not linked yet"}</span>
+                        </div>
+                        <div className="source-row">
+                          <strong>Official source</strong>
+                          {visa.source.officialUrl ? (
+                            <a
+                              className="button secondary"
+                              href={visa.source.officialUrl}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              Open authority page
+                            </a>
+                          ) : (
+                            <span>No official URL added</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {visa.source.reviewStatus !== "reviewed" ? (
+                        <div className="group-note">
+                          Treat this visa as draft catalog content until the
+                          official source is linked and reviewed.
+                        </div>
+                      ) : null}
+
+                      {visa.source.reviewNotes ? (
+                        <div className="group-note">
+                          <strong>Review notes</strong>
+                          <p className="muted">{visa.source.reviewNotes}</p>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </details>
 

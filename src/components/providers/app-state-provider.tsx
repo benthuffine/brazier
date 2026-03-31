@@ -17,6 +17,7 @@ import {
   SubscriptionTier,
   UserProfile,
   Visa,
+  VisaPatch,
 } from "@/lib/types";
 
 interface AppStateContextValue extends AppStateData {
@@ -31,7 +32,7 @@ interface AppStateContextValue extends AppStateData {
   createVisa: (visa: Visa) => void;
   deleteVisa: (visaId: string) => void;
   reorderVisas: (orderedVisaIds: string[]) => void;
-  updateVisa: (visaId: string, patch: Partial<Visa>) => void;
+  updateVisa: (visaId: string, patch: VisaPatch) => void;
   resetDemo: () => void;
 }
 

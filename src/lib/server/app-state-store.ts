@@ -14,6 +14,7 @@ import {
   UserProfile,
   Visa,
 } from "@/lib/types";
+import { normalizeVisa } from "@/lib/visa-source";
 
 function writePathway(connection: ReturnType<typeof getDatabase>, userId: string, pathway: Pathway) {
   connection
@@ -308,9 +309,10 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           throw new Error("forbidden");
         }
 
+        const nextVisa = normalizeVisa(mutation.payload.visa);
         const existingVisa = connection
           .prepare("SELECT id FROM visas WHERE id = ?")
-          .get(mutation.payload.visa.id) as { id: string } | undefined;
+          .get(nextVisa.id) as { id: string } | undefined;
 
         if (existingVisa) {
           throw new Error("conflict");
@@ -323,9 +325,9 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
         connection
           .prepare("INSERT INTO visas (id, sort_order, value) VALUES (?, ?, ?)")
           .run(
-            mutation.payload.visa.id,
+            nextVisa.id,
             sortOrderRow.max_sort_order + 1,
-            serialize(mutation.payload.visa)
+            serialize(nextVisa)
           );
         break;
       }
@@ -361,11 +363,17 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           break;
         }
 
-        const visa = parseJson<Visa>(visaRow.value);
-        const nextVisa = {
+        const visa = normalizeVisa(parseJson<Visa>(visaRow.value));
+        const nextVisa = normalizeVisa({
           ...visa,
           ...mutation.payload.patch,
-        };
+          source: mutation.payload.patch.source
+            ? {
+                ...visa.source,
+                ...mutation.payload.patch.source,
+              }
+            : visa.source,
+        });
 
         connection
           .prepare("UPDATE visas SET value = ?, sort_order = ? WHERE id = ?")

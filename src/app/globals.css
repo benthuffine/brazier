@@ -765,9 +765,57 @@ main {
   width: 100%;
 }
 
+.list-meta-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .list-drag-copy {
   font-size: 0.82rem;
   color: var(--ink-muted);
+}
+
+.review-tag.review-pending_source {
+  background: rgba(255, 190, 23, 0.18);
+  color: #9f6b00;
+}
+
+.review-tag.review-needs_review {
+  background: rgba(86, 100, 224, 0.12);
+  color: #4a4fd1;
+}
+
+.review-tag.review-reviewed {
+  background: rgba(24, 201, 221, 0.16);
+  color: var(--primary-strong);
+}
+
+.review-tag.review-stale {
+  background: rgba(255, 109, 107, 0.14);
+  color: var(--danger);
+}
+
+.source-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(245, 247, 255, 0.82);
+}
+
+.source-row span {
+  color: var(--ink-muted);
+  text-align: right;
 }
 
 .editor-section-grid,
@@ -856,9 +904,19 @@ main {
   .panel-header,
   .space-between,
   .country-card-top,
-  .visa-card-top {
+  .visa-card-top,
+  .source-row,
+  .list-button-meta {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .list-meta-tags {
+    justify-content: flex-start;
+  }
+
+  .source-row span {
+    text-align: left;
   }
 
   .rule-grid {
