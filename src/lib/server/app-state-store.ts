@@ -10,6 +10,7 @@ import {
   AppNotification,
   AppStateData,
   AuthUser,
+  Country,
   Pathway,
   UserProfile,
   Visa,
@@ -302,6 +303,47 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           ...notification,
           read: true,
         });
+        break;
+      }
+      case "create_country": {
+        if (user.role !== "admin") {
+          throw new Error("forbidden");
+        }
+
+        const nextCountry: Country = {
+          ...mutation.payload.country,
+          code: mutation.payload.country.code.trim().toUpperCase(),
+          name: mutation.payload.country.name.trim(),
+          flag: mutation.payload.country.flag.trim() || "🌍",
+          region: mutation.payload.country.region.trim() || "Other",
+          headline: mutation.payload.country.headline.trim(),
+          climate: mutation.payload.country.climate.trim() || "Varies",
+          costOfLivingBand: mutation.payload.country.costOfLivingBand.trim() || "$$",
+          highlights: mutation.payload.country.highlights
+            .map((highlight) => highlight.trim())
+            .filter(Boolean),
+        };
+        const existingCountry = connection
+          .prepare("SELECT code FROM countries WHERE code = ?")
+          .get(nextCountry.code) as { code: string } | undefined;
+
+        if (existingCountry) {
+          throw new Error("conflict");
+        }
+
+        const sortOrderRow = connection
+          .prepare(
+            "SELECT COALESCE(MAX(sort_order), -1) AS max_sort_order FROM countries"
+          )
+          .get() as { max_sort_order: number };
+
+        connection
+          .prepare("INSERT INTO countries (code, sort_order, value) VALUES (?, ?, ?)")
+          .run(
+            nextCountry.code,
+            sortOrderRow.max_sort_order + 1,
+            serialize(nextCountry)
+          );
         break;
       }
       case "create_visa": {

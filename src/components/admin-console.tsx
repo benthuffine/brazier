@@ -5,6 +5,7 @@ import { DragEvent, useEffect, useState } from "react";
 import { AdminRequirementsEditor } from "@/components/admin-requirements-editor";
 import { useAppState } from "@/components/providers/app-state-provider";
 import {
+  Country,
   PathwayChecklistItem,
   Requirement,
   RequirementGroup,
@@ -22,12 +23,28 @@ interface NewVisaFormState {
   templateVisaId: string;
 }
 
+interface NewCountryFormState {
+  code: string;
+  name: string;
+  flag: string;
+  region: string;
+}
+
 const defaultNewVisaForm: NewVisaFormState = {
   name: "",
   countryCode: "",
   category: "Digital Nomad",
   templateVisaId: blankTemplateVisaId,
 };
+
+const defaultNewCountryForm: NewCountryFormState = {
+  code: "",
+  name: "",
+  flag: "",
+  region: "",
+};
+
+const defaultCountryHeroColors: Country["heroColors"] = ["#8A3DF5", "#18C9DD"];
 
 function makeLocalId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -56,6 +73,26 @@ function buildVisaId(countryCode: string, name: string, visas: Visa[]) {
   }
 
   return `${base}-${suffix}`;
+}
+
+function sanitizeCountryCode(value: string) {
+  return value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+}
+
+function buildCountryFromForm(form: NewCountryFormState): Country {
+  const countryName = form.name.trim();
+
+  return {
+    code: sanitizeCountryCode(form.code),
+    name: countryName,
+    flag: form.flag.trim() || "🌍",
+    region: form.region.trim() || "Other",
+    headline: `${countryName} visa pathways are being prepared for catalog launch.`,
+    costOfLivingBand: "$$",
+    climate: "Varies by region",
+    heroColors: defaultCountryHeroColors,
+    highlights: ["Visa data in progress", "Source review pending"],
+  };
 }
 
 function cloneRequirements(requirements: Requirement[], prefix: string) {
@@ -128,10 +165,20 @@ function createBlankVisa(form: NewVisaFormState, visas: Visa[]): Visa {
 }
 
 export function AdminConsole() {
-  const { visas, countries, createVisa, deleteVisa, reorderVisas, updateVisa, ready } =
-    useAppState();
+  const {
+    visas,
+    countries,
+    createCountry,
+    createVisa,
+    deleteVisa,
+    reorderVisas,
+    updateVisa,
+    ready,
+  } = useAppState();
   const [selectedVisaId, setSelectedVisaId] = useState("");
   const [draft, setDraft] = useState<Visa | null>(null);
+  const [newCountryForm, setNewCountryForm] =
+    useState<NewCountryFormState>(defaultNewCountryForm);
   const [newVisaForm, setNewVisaForm] = useState<NewVisaFormState>(defaultNewVisaForm);
   const [draggedVisaId, setDraggedVisaId] = useState<string | null>(null);
   const [dropTargetVisaId, setDropTargetVisaId] = useState<string | null>(null);
@@ -183,6 +230,11 @@ export function AdminConsole() {
     newVisaForm.name.trim().length > 0 &&
     newVisaForm.countryCode.length > 0 &&
     newVisaForm.category.trim().length > 0;
+  const normalizedCountryCode = sanitizeCountryCode(newCountryForm.code);
+  const canCreateCountry =
+    normalizedCountryCode.length >= 2 &&
+    newCountryForm.name.trim().length > 0 &&
+    !countries.some((country) => country.code === normalizedCountryCode);
 
   const updateDraftValue = <K extends keyof Visa>(field: K, value: Visa[K]) => {
     setDraft((current) => (current ? { ...current, [field]: value } : current));
@@ -322,6 +374,21 @@ export function AdminConsole() {
     }));
   };
 
+  const handleCreateCountry = () => {
+    if (!canCreateCountry) {
+      return;
+    }
+
+    const nextCountry = buildCountryFromForm(newCountryForm);
+
+    createCountry(nextCountry);
+    setNewVisaForm((current) => ({
+      ...current,
+      countryCode: nextCountry.code,
+    }));
+    setNewCountryForm(defaultNewCountryForm);
+  };
+
   const handleArchiveToggle = () => {
     if (!draft) {
       return;
@@ -413,6 +480,81 @@ export function AdminConsole() {
 
       <div className="admin-grid">
         <aside className="stack-md">
+          <section className="panel">
+            <div className="stack-md">
+              <div>
+                <p className="eyebrow">New country</p>
+                <h2>Add destination</h2>
+              </div>
+              <label className="field">
+                <span>Country name</span>
+                <input
+                  placeholder="Japan"
+                  value={newCountryForm.name}
+                  onChange={(event) =>
+                    setNewCountryForm((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <div className="mini-form-grid">
+                <label className="field">
+                  <span>Code</span>
+                  <input
+                    placeholder="JP"
+                    value={newCountryForm.code}
+                    onChange={(event) =>
+                      setNewCountryForm((current) => ({
+                        ...current,
+                        code: sanitizeCountryCode(event.target.value),
+                      }))
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Flag</span>
+                  <input
+                    placeholder="🇯🇵"
+                    value={newCountryForm.flag}
+                    onChange={(event) =>
+                      setNewCountryForm((current) => ({
+                        ...current,
+                        flag: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+              <label className="field">
+                <span>Region</span>
+                <input
+                  placeholder="Asia"
+                  value={newCountryForm.region}
+                  onChange={(event) =>
+                    setNewCountryForm((current) => ({
+                      ...current,
+                      region: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <p className="admin-helper-copy">
+                New countries get default discovery-card copy so you can use them
+                immediately in visa creation. We can add full country editing next.
+              </p>
+              <button
+                className="button primary"
+                disabled={!canCreateCountry}
+                onClick={handleCreateCountry}
+                type="button"
+              >
+                Add country
+              </button>
+            </div>
+          </section>
+
           <section className="panel">
             <div className="stack-md">
               <div>

@@ -727,6 +727,12 @@ main {
   grid-template-columns: 280px 1fr;
 }
 
+.mini-form-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .list-button {
   display: flex;
   flex-direction: column;
@@ -775,6 +781,11 @@ main {
 .list-drag-copy {
   font-size: 0.82rem;
   color: var(--ink-muted);
+}
+
+.admin-helper-copy {
+  color: var(--ink-muted);
+  font-size: 0.9rem;
 }
 
 .review-tag.review-pending_source {
@@ -886,6 +897,7 @@ main {
 @media (max-width: 819px) {
   .marketing-stats,
   .hero-metrics,
+  .mini-form-grid,
   .form-grid,
   .admin-grid {
     grid-template-columns: 1fr;

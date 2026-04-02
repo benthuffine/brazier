@@ -14,6 +14,7 @@ import { initialState } from "@/lib/data";
 import {
   AppMutation,
   AppStateData,
+  Country,
   SubscriptionTier,
   UserProfile,
   Visa,
@@ -29,6 +30,7 @@ interface AppStateContextValue extends AppStateData {
   toggleDocument: (pathwayId: string, documentId: string) => void;
   dismissNotification: (notificationId: string) => void;
   markNotificationRead: (notificationId: string) => void;
+  createCountry: (country: Country) => void;
   createVisa: (visa: Visa) => void;
   deleteVisa: (visaId: string) => void;
   reorderVisas: (orderedVisaIds: string[]) => void;
@@ -166,6 +168,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           payload: { notificationId },
         }).catch((error) => {
           console.error("Could not mark notification as read", error);
+        });
+      },
+      createCountry: (country) => {
+        void commitMutation({
+          type: "create_country",
+          payload: { country },
+        }).catch((error) => {
+          console.error("Could not create country", error);
         });
       },
       createVisa: (visa) => {
