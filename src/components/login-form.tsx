@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -14,25 +15,31 @@ const demoCredentials = [
     label: "Starter demo",
     email: "starter@migrately.demo",
     password: "DemoStarter!23",
-    note: "Standard starter account",
+    note: "Starter app experience",
   },
   {
     label: "Premium demo",
     email: "premium@migrately.demo",
     password: "DemoPremium!23",
-    note: "Standard premium account",
+    note: "Premium app experience",
   },
 ];
 
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState(demoCredentials[1].email);
-  const [password, setPassword] = useState(demoCredentials[1].password);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function loginWithEmail(nextEmail: string) {
+    const credential = demoCredentials.find(
+      (candidate) => candidate.email.toLowerCase() === nextEmail.toLowerCase()
+    );
+
+    if (!credential) {
+      throw new Error("Use one of the demo emails seeded in this build.");
+    }
+
     setPending(true);
     setError(null);
 
@@ -42,7 +49,10 @@ export function LoginForm() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: credential.email,
+          password: credential.password,
+        }),
       });
 
       const body = (await response.json()) as {
@@ -65,63 +75,95 @@ export function LoginForm() {
     }
   }
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      await loginWithEmail(email);
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error ? nextError.message : "Login failed."
+      );
+    }
+  }
+
   return (
-    <div className="login-shell">
-      <section className="panel login-panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Demo auth</p>
-            <h1>Sign in</h1>
-          </div>
-        </div>
-        <p className="muted">
-          Local SQLite-backed users and cookie sessions. Use one of the seeded
-          demo accounts below.
-        </p>
-
-        <div className="stack-sm">
-          {demoCredentials.map((credential) => (
-            <button
-              key={credential.email}
-              className="list-button"
-              onClick={() => {
-                setEmail(credential.email);
-                setPassword(credential.password);
-              }}
-              type="button"
-            >
-              <strong>{credential.label}</strong>
-              <span className="muted">{credential.email}</span>
-              <span className="muted">{credential.note}</span>
-            </button>
-          ))}
+    <div className="landing-shell">
+      <section className="landing-device auth-device">
+        <div className="auth-toprow">
+          <Link className="auth-backlink" href="/">
+            Back
+          </Link>
+          <span className="auth-brand">migrately</span>
         </div>
 
-        <form className="stack-md" onSubmit={handleSubmit}>
+        <div className="auth-copy">
+          <h1>Get started today</h1>
+          <p>
+            Sign in or create an account below.
+          </p>
+        </div>
+
+        <form className="auth-form" onSubmit={handleSubmit}>
           <label className="field">
-            <span>Email</span>
             <input
               autoComplete="email"
+              placeholder="email@domain.com"
               onChange={(event) => setEmail(event.target.value)}
               value={email}
-            />
-          </label>
-          <label className="field">
-            <span>Password</span>
-            <input
-              autoComplete="current-password"
-              onChange={(event) => setPassword(event.target.value)}
-              type="password"
-              value={password}
             />
           </label>
 
           {error ? <p className="error-copy">{error}</p> : null}
 
-          <button className="button primary" disabled={pending} type="submit">
-            {pending ? "Signing in..." : "Sign in"}
+          <button className="button primary wide-button" disabled={pending} type="submit">
+            {pending ? "Signing in..." : "Continue"}
           </button>
         </form>
+
+        <div className="auth-divider">
+          <span />
+          <p>or</p>
+          <span />
+        </div>
+
+        <div className="auth-social-list">
+          <button
+            className="auth-social-button"
+            disabled={pending}
+            onClick={() => {
+              setEmail(demoCredentials[2].email);
+              void loginWithEmail(demoCredentials[2].email).catch((nextError) => {
+                setError(
+                  nextError instanceof Error ? nextError.message : "Login failed."
+                );
+              });
+            }}
+            type="button"
+          >
+            Continue with Google
+          </button>
+          <button
+            className="auth-social-button"
+            disabled={pending}
+            onClick={() => {
+              setEmail(demoCredentials[1].email);
+              void loginWithEmail(demoCredentials[1].email).catch((nextError) => {
+                setError(
+                  nextError instanceof Error ? nextError.message : "Login failed."
+                );
+              });
+            }}
+            type="button"
+          >
+            Continue with Apple
+          </button>
+        </div>
+
+        <p className="auth-legal">
+          By clicking continue, you agree to our Terms of Service and Privacy
+          Policy.
+        </p>
       </section>
     </div>
   );

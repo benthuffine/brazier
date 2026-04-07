@@ -2,8 +2,8 @@ import Link from "next/link";
 import { ReactNode } from "react";
 
 import { BottomNav } from "@/components/bottom-nav";
-import { LogoutButton } from "@/components/logout-button";
 import { AppStateProvider } from "@/components/providers/app-state-provider";
+import { formatTierLabel, getInitials } from "@/lib/mockup-ui";
 import { requireAuthenticatedUser } from "@/lib/server/auth";
 
 export default async function ProductLayout({
@@ -16,32 +16,29 @@ export default async function ProductLayout({
   return (
     <AppStateProvider>
       <main className="app-shell">
-        <div className="app-main">
-          <header className="app-header">
-            <div className="brand-mark">
-              <div className="brand-badge">M</div>
-              <div className="brand-copy">
-                <strong>Migrately MVP</strong>
-                <p>
-                  {user.fullName} · {user.email} · {user.tier}
-                </p>
-              </div>
-            </div>
-            <div className="actions-row">
-              <Link className="button ghost" href="/">
-                Landing
+        <div className="mobile-app-frame">
+          <header className="app-topbar">
+            <div className="app-topbar-copy">
+              <p className="app-kicker">Visa discovery app</p>
+              <Link className="app-wordmark" href="/app">
+                migrately
               </Link>
+            </div>
+            <div className="app-topbar-actions">
               {user.role === "admin" ? (
-                <Link className="button secondary" href="/admin">
+                <Link className="topbar-chip" href="/admin">
                   Admin
                 </Link>
               ) : null}
-              <LogoutButton />
+              <Link className="profile-badge" href="/app/profile">
+                <span>{getInitials(user.fullName)}</span>
+                <small>{formatTierLabel(user.tier)}</small>
+              </Link>
             </div>
           </header>
-          {children}
+          <div className="app-screen">{children}</div>
+          <BottomNav userName={user.fullName} />
         </div>
-        <BottomNav />
       </main>
     </AppStateProvider>
   );

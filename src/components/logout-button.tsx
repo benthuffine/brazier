@@ -15,7 +15,11 @@ export function LogoutButton() {
   }
 
   return (
-    <button className="button ghost" onClick={handleLogout} type="button">
+    <button
+      className="button light-button wide-button"
+      onClick={handleLogout}
+      type="button"
+    >
       Logout
     </button>
   );

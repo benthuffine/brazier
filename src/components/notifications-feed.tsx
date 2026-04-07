@@ -4,8 +4,16 @@ import { useMemo } from "react";
 
 import { useAppState } from "@/components/providers/app-state-provider";
 
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
+}
+
 export function NotificationsFeed() {
-  const { notifications, dismissNotification, markNotificationRead, ready } = useAppState();
+  const { notifications, dismissNotification, markNotificationRead, ready } =
+    useAppState();
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,
@@ -13,70 +21,64 @@ export function NotificationsFeed() {
   );
 
   if (!ready) {
-    return <div className="panel">Loading notifications…</div>;
+    return <div className="screen-loading">Loading notifications…</div>;
   }
 
   return (
-    <div className="stack-lg">
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Recent updates</p>
-            <h1>Notifications</h1>
-          </div>
-          <span className="pill">{unreadCount} unread</span>
+    <div className="screen-stack notifications-screen">
+      <section className="screen-section notifications-header-section">
+        <div className="section-heading">
+          <h1>Notifications</h1>
+          <span className="section-meta">{unreadCount} unread</span>
         </div>
-        <p className="muted">
-          The MVP keeps notifications in-app first. Email delivery can follow
-          once auth and messaging infrastructure are connected.
-        </p>
       </section>
 
-      <div className="scroll-row">
-        {notifications.slice(0, 4).map((notification) => (
-          <article key={notification.id} className="mini-banner">
-            <span className="pill muted-pill">{notification.kind}</span>
-            <strong>{notification.title}</strong>
-            <p>{notification.message}</p>
-          </article>
-        ))}
-      </div>
+      <section className="screen-section notifications-banner-section">
+        <div className="horizontal-scroll">
+          {notifications.slice(0, 4).map((notification) => (
+            <article key={notification.id} className="notification-banner">
+              <span className="notification-kind">{notification.kind}</span>
+              <strong>{notification.title}</strong>
+              <p>{notification.message}</p>
+            </article>
+          ))}
+        </div>
+      </section>
 
-      <section className="panel">
-        <div className="stack-md">
+      <section className="screen-section notifications-list-section">
+        <div className="mobile-card-stack">
           {notifications.map((notification) => (
-            <div key={notification.id} className={`notification-row${notification.read ? "" : " unread"}`}>
-              <div>
-                <div className="space-between">
+            <article
+              key={notification.id}
+              className={`notification-card${notification.read ? "" : " unread"}`}
+              onClick={() => {
+                if (!notification.read) {
+                  markNotificationRead(notification.id);
+                }
+              }}
+            >
+              <div className="notification-card-copy">
+                <div className="detail-card-header">
                   <strong>{notification.title}</strong>
-                  <span className="muted">
-                    {new Intl.DateTimeFormat("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    }).format(new Date(notification.createdAt))}
+                  <span className="notification-date">
+                    {formatDate(notification.createdAt)}
                   </span>
                 </div>
-                <p className="muted">{notification.message}</p>
+                <p>{notification.message}</p>
               </div>
-              <div className="actions-row">
-                {!notification.read ? (
-                  <button
-                    className="button secondary"
-                    onClick={() => markNotificationRead(notification.id)}
-                    type="button"
-                  >
-                    Mark read
-                  </button>
-                ) : null}
+              <div className="notification-actions">
                 <button
-                  className="button ghost"
-                  onClick={() => dismissNotification(notification.id)}
+                  className="button light-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    dismissNotification(notification.id);
+                  }}
                   type="button"
                 >
                   Dismiss
                 </button>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       </section>
