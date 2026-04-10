@@ -15,7 +15,7 @@ export default async function AdminLayout({
   return (
     <AppStateProvider>
       <main className="admin-page">
-        <div className="app-header" style={{ paddingTop: "1.1rem" }}>
+        <div className="admin-toolbar">
           <div className="brand-mark">
             <div className="brand-badge">A</div>
             <div className="brand-copy">

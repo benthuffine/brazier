@@ -3,7 +3,13 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { initialState } from "@/lib/data";
-import { getDatabase, parseJson, readCatalog, serialize } from "@/lib/server/database";
+import {
+  type DatabaseClient,
+  getDatabase,
+  parseJson,
+  readCatalog,
+  serialize,
+} from "@/lib/server/database";
 import { getDemoUserBySeedKey } from "@/lib/server/demo-users";
 import {
   AppMutation,
@@ -17,72 +23,78 @@ import {
 } from "@/lib/types";
 import { normalizeVisa } from "@/lib/visa-source";
 
-function writePathway(connection: ReturnType<typeof getDatabase>, userId: string, pathway: Pathway) {
-  connection
-    .prepare(
-      `
-        INSERT INTO pathways (id, user_id, visa_id, started_at, value)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          user_id = excluded.user_id,
-          visa_id = excluded.visa_id,
-          started_at = excluded.started_at,
-          value = excluded.value
-      `
-    )
-    .run(pathway.id, userId, pathway.visaId, pathway.startedAt, serialize(pathway));
+async function writePathway(
+  connection: DatabaseClient,
+  userId: string,
+  pathway: Pathway
+) {
+  await connection.run(
+    `
+      INSERT INTO pathways (id, user_id, visa_id, started_at, value)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        user_id = excluded.user_id,
+        visa_id = excluded.visa_id,
+        started_at = excluded.started_at,
+        value = excluded.value
+    `,
+    [pathway.id, userId, pathway.visaId, pathway.startedAt, serialize(pathway)]
+  );
 }
 
-function writeNotification(
-  connection: ReturnType<typeof getDatabase>,
+async function writeNotification(
+  connection: DatabaseClient,
   userId: string,
   notification: AppNotification
 ) {
-  connection
-    .prepare(
-      `
-        INSERT INTO notifications (id, user_id, created_at, is_read, value)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          user_id = excluded.user_id,
-          created_at = excluded.created_at,
-          is_read = excluded.is_read,
-          value = excluded.value
-      `
-    )
-    .run(
+  await connection.run(
+    `
+      INSERT INTO notifications (id, user_id, created_at, is_read, value)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        user_id = excluded.user_id,
+        created_at = excluded.created_at,
+        is_read = excluded.is_read,
+        value = excluded.value
+    `,
+    [
       notification.id,
       userId,
       notification.createdAt,
       notification.read ? 1 : 0,
-      serialize(notification)
-    );
+      serialize(notification),
+    ]
+  );
 }
 
-function readUserState(connection: ReturnType<typeof getDatabase>, userId: string): AppStateData {
-  const userRow = connection
-    .prepare("SELECT profile_json, tier FROM users WHERE id = ?")
-    .get(userId) as { profile_json: string; tier: AppStateData["tier"] } | undefined;
+async function readUserState(
+  connection: DatabaseClient,
+  userId: string
+): Promise<AppStateData> {
+  const userRow = await connection.one<{
+    profile_json: string;
+    tier: AppStateData["tier"];
+  }>("SELECT profile_json, tier FROM users WHERE id = ?", [userId]);
 
   if (!userRow) {
     throw new Error("not_found");
   }
 
   const pathways = (
-    connection
-      .prepare("SELECT value FROM pathways WHERE user_id = ? ORDER BY started_at DESC")
-      .all(userId) as Array<{ value: string }>
+    await connection.many<{ value: string }>(
+      "SELECT value FROM pathways WHERE user_id = ? ORDER BY started_at DESC",
+      [userId]
+    )
   ).map((row) => parseJson<Pathway>(row.value));
 
   const notifications = (
-    connection
-      .prepare(
-        "SELECT value FROM notifications WHERE user_id = ? ORDER BY created_at DESC"
-      )
-      .all(userId) as Array<{ value: string }>
+    await connection.many<{ value: string }>(
+      "SELECT value FROM notifications WHERE user_id = ? ORDER BY created_at DESC",
+      [userId]
+    )
   ).map((row) => parseJson<AppNotification>(row.value));
 
-  const { countries, visas } = readCatalog(connection);
+  const { countries, visas } = await readCatalog(connection);
 
   return {
     profile: parseJson<UserProfile>(userRow.profile_json),
@@ -106,20 +118,20 @@ function createPathwayNotification(visaName: string, visaId: string): AppNotific
   };
 }
 
-function deleteVisaReferences(connection: ReturnType<typeof getDatabase>, visaId: string) {
-  connection.prepare("DELETE FROM pathways WHERE visa_id = ?").run(visaId);
-  connection
-    .prepare("DELETE FROM notifications WHERE value LIKE ?")
-    .run(`%"visaId":"${visaId}"%`);
+async function deleteVisaReferences(connection: DatabaseClient, visaId: string) {
+  await connection.run("DELETE FROM pathways WHERE visa_id = ?", [visaId]);
+  await connection.run("DELETE FROM notifications WHERE value LIKE ?", [
+    `%"visaId":"${visaId}"%`,
+  ]);
 }
 
-function reorderCatalogVisas(
-  connection: ReturnType<typeof getDatabase>,
+async function reorderCatalogVisas(
+  connection: DatabaseClient,
   orderedVisaIds: string[]
 ) {
-  const existingRows = connection
-    .prepare("SELECT id, sort_order FROM visas ORDER BY sort_order ASC")
-    .all() as Array<{ id: string; sort_order: number }>;
+  const existingRows = await connection.many<{ id: string; sort_order: number }>(
+    "SELECT id, sort_order FROM visas ORDER BY sort_order ASC"
+  );
   const existingIds = existingRows.map((row) => row.id);
   const seen = new Set<string>();
   const nextOrder = orderedVisaIds.filter((id) => {
@@ -130,42 +142,44 @@ function reorderCatalogVisas(
     return include;
   });
   const remaining = existingIds.filter((id) => !seen.has(id));
-  const updateSortOrder = connection.prepare(
-    "UPDATE visas SET sort_order = ? WHERE id = ?"
-  );
 
-  [...nextOrder, ...remaining].forEach((id, index) => {
-    updateSortOrder.run(index, id);
-  });
+  for (const [index, id] of [...nextOrder, ...remaining].entries()) {
+    await connection.run("UPDATE visas SET sort_order = ? WHERE id = ?", [index, id]);
+  }
 }
 
-function resetUserState(connection: ReturnType<typeof getDatabase>, user: AuthUser) {
+async function resetUserState(connection: DatabaseClient, user: AuthUser) {
   const seedUser = user.seedKey ? getDemoUserBySeedKey(user.seedKey) : null;
   const nextProfile = seedUser?.profile ?? initialState.profile;
   const nextTier = seedUser?.tier ?? user.tier;
 
-  connection
-    .prepare("UPDATE users SET profile_json = ?, tier = ? WHERE id = ?")
-    .run(serialize(nextProfile), nextTier, user.id);
+  await connection.run("UPDATE users SET profile_json = ?, tier = ? WHERE id = ?", [
+    serialize(nextProfile),
+    nextTier,
+    user.id,
+  ]);
 
-  connection.prepare("DELETE FROM pathways WHERE user_id = ?").run(user.id);
-  connection.prepare("DELETE FROM notifications WHERE user_id = ?").run(user.id);
+  await connection.run("DELETE FROM pathways WHERE user_id = ?", [user.id]);
+  await connection.run("DELETE FROM notifications WHERE user_id = ?", [user.id]);
 
-  seedUser?.pathways.forEach((pathway) => writePathway(connection, user.id, pathway));
-  seedUser?.notifications.forEach((notification) =>
-    writeNotification(connection, user.id, notification)
-  );
+  for (const pathway of seedUser?.pathways ?? []) {
+    await writePathway(connection, user.id, pathway);
+  }
+
+  for (const notification of seedUser?.notifications ?? []) {
+    await writeNotification(connection, user.id, notification);
+  }
 }
 
-export function getAppState(userId: string) {
-  return readUserState(getDatabase(), userId);
+export async function getAppState(userId: string) {
+  return readUserState(await getDatabase(), userId);
 }
 
-export function applyMutation(user: AuthUser, mutation: AppMutation) {
-  const connection = getDatabase();
+export async function applyMutation(user: AuthUser, mutation: AppMutation) {
+  const connection = await getDatabase();
 
-  const transaction = connection.transaction(() => {
-    const state = readUserState(connection, user.id);
+  return connection.transaction(async (transaction) => {
+    const state = await readUserState(transaction, user.id);
 
     switch (mutation.type) {
       case "update_profile": {
@@ -179,9 +193,10 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           nextProfile.familyMembers = state.profile.familyMembers;
         }
 
-        connection
-          .prepare("UPDATE users SET profile_json = ? WHERE id = ?")
-          .run(serialize(nextProfile), user.id);
+        await transaction.run("UPDATE users SET profile_json = ? WHERE id = ?", [
+          serialize(nextProfile),
+          user.id,
+        ]);
         break;
       }
       case "set_tier": {
@@ -189,9 +204,10 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           throw new Error("forbidden");
         }
 
-        connection
-          .prepare("UPDATE users SET tier = ? WHERE id = ?")
-          .run(mutation.payload.tier, user.id);
+        await transaction.run("UPDATE users SET tier = ? WHERE id = ?", [
+          mutation.payload.tier,
+          user.id,
+        ]);
         break;
       }
       case "start_pathway": {
@@ -213,11 +229,11 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           };
           const visa = state.visas.find((entry) => entry.id === mutation.payload.visaId);
 
-          writePathway(connection, user.id, nextPathway);
+          await writePathway(transaction, user.id, nextPathway);
 
           if (visa) {
-            writeNotification(
-              connection,
+            await writeNotification(
+              transaction,
               user.id,
               createPathwayNotification(visa.name, visa.id)
             );
@@ -230,11 +246,10 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           throw new Error("premium_required");
         }
 
-        const pathwayRow = connection
-          .prepare("SELECT value FROM pathways WHERE id = ? AND user_id = ?")
-          .get(mutation.payload.pathwayId, user.id) as
-          | { value: string }
-          | undefined;
+        const pathwayRow = await transaction.one<{ value: string }>(
+          "SELECT value FROM pathways WHERE id = ? AND user_id = ?",
+          [mutation.payload.pathwayId, user.id]
+        );
 
         if (!pathwayRow) {
           break;
@@ -243,7 +258,7 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
         const pathway = parseJson<Pathway>(pathwayRow.value);
         const exists = pathway.completedStepIds.includes(mutation.payload.stepId);
 
-        writePathway(connection, user.id, {
+        await writePathway(transaction, user.id, {
           ...pathway,
           completedStepIds: exists
             ? pathway.completedStepIds.filter((id) => id !== mutation.payload.stepId)
@@ -256,11 +271,10 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           throw new Error("premium_required");
         }
 
-        const pathwayRow = connection
-          .prepare("SELECT value FROM pathways WHERE id = ? AND user_id = ?")
-          .get(mutation.payload.pathwayId, user.id) as
-          | { value: string }
-          | undefined;
+        const pathwayRow = await transaction.one<{ value: string }>(
+          "SELECT value FROM pathways WHERE id = ? AND user_id = ?",
+          [mutation.payload.pathwayId, user.id]
+        );
 
         if (!pathwayRow) {
           break;
@@ -271,7 +285,7 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           mutation.payload.documentId
         );
 
-        writePathway(connection, user.id, {
+        await writePathway(transaction, user.id, {
           ...pathway,
           completedDocumentIds: exists
             ? pathway.completedDocumentIds.filter(
@@ -282,24 +296,24 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
         break;
       }
       case "dismiss_notification": {
-        connection
-          .prepare("DELETE FROM notifications WHERE id = ? AND user_id = ?")
-          .run(mutation.payload.notificationId, user.id);
+        await transaction.run("DELETE FROM notifications WHERE id = ? AND user_id = ?", [
+          mutation.payload.notificationId,
+          user.id,
+        ]);
         break;
       }
       case "mark_notification_read": {
-        const notificationRow = connection
-          .prepare("SELECT value FROM notifications WHERE id = ? AND user_id = ?")
-          .get(mutation.payload.notificationId, user.id) as
-          | { value: string }
-          | undefined;
+        const notificationRow = await transaction.one<{ value: string }>(
+          "SELECT value FROM notifications WHERE id = ? AND user_id = ?",
+          [mutation.payload.notificationId, user.id]
+        );
 
         if (!notificationRow) {
           break;
         }
 
         const notification = parseJson<AppNotification>(notificationRow.value);
-        writeNotification(connection, user.id, {
+        await writeNotification(transaction, user.id, {
           ...notification,
           read: true,
         });
@@ -323,27 +337,27 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
             .map((highlight) => highlight.trim())
             .filter(Boolean),
         };
-        const existingCountry = connection
-          .prepare("SELECT code FROM countries WHERE code = ?")
-          .get(nextCountry.code) as { code: string } | undefined;
+        const existingCountry = await transaction.one<{ code: string }>(
+          "SELECT code FROM countries WHERE code = ?",
+          [nextCountry.code]
+        );
 
         if (existingCountry) {
           throw new Error("conflict");
         }
 
-        const sortOrderRow = connection
-          .prepare(
-            "SELECT COALESCE(MAX(sort_order), -1) AS max_sort_order FROM countries"
-          )
-          .get() as { max_sort_order: number };
+        const sortOrderRow = await transaction.one<{ max_sort_order: number }>(
+          "SELECT COALESCE(MAX(sort_order), -1) AS max_sort_order FROM countries"
+        );
 
-        connection
-          .prepare("INSERT INTO countries (code, sort_order, value) VALUES (?, ?, ?)")
-          .run(
+        await transaction.run(
+          "INSERT INTO countries (code, sort_order, value) VALUES (?, ?, ?)",
+          [
             nextCountry.code,
-            sortOrderRow.max_sort_order + 1,
-            serialize(nextCountry)
-          );
+            (sortOrderRow?.max_sort_order ?? -1) + 1,
+            serialize(nextCountry),
+          ]
+        );
         break;
       }
       case "create_visa": {
@@ -352,25 +366,23 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
         }
 
         const nextVisa = normalizeVisa(mutation.payload.visa);
-        const existingVisa = connection
-          .prepare("SELECT id FROM visas WHERE id = ?")
-          .get(nextVisa.id) as { id: string } | undefined;
+        const existingVisa = await transaction.one<{ id: string }>(
+          "SELECT id FROM visas WHERE id = ?",
+          [nextVisa.id]
+        );
 
         if (existingVisa) {
           throw new Error("conflict");
         }
 
-        const sortOrderRow = connection
-          .prepare("SELECT COALESCE(MAX(sort_order), -1) AS max_sort_order FROM visas")
-          .get() as { max_sort_order: number };
+        const sortOrderRow = await transaction.one<{ max_sort_order: number }>(
+          "SELECT COALESCE(MAX(sort_order), -1) AS max_sort_order FROM visas"
+        );
 
-        connection
-          .prepare("INSERT INTO visas (id, sort_order, value) VALUES (?, ?, ?)")
-          .run(
-            nextVisa.id,
-            sortOrderRow.max_sort_order + 1,
-            serialize(nextVisa)
-          );
+        await transaction.run(
+          "INSERT INTO visas (id, sort_order, value) VALUES (?, ?, ?)",
+          [nextVisa.id, (sortOrderRow?.max_sort_order ?? -1) + 1, serialize(nextVisa)]
+        );
         break;
       }
       case "delete_visa": {
@@ -378,8 +390,10 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           throw new Error("forbidden");
         }
 
-        deleteVisaReferences(connection, mutation.payload.visaId);
-        connection.prepare("DELETE FROM visas WHERE id = ?").run(mutation.payload.visaId);
+        await deleteVisaReferences(transaction, mutation.payload.visaId);
+        await transaction.run("DELETE FROM visas WHERE id = ?", [
+          mutation.payload.visaId,
+        ]);
         break;
       }
       case "reorder_visas": {
@@ -387,7 +401,7 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           throw new Error("forbidden");
         }
 
-        reorderCatalogVisas(connection, mutation.payload.orderedVisaIds);
+        await reorderCatalogVisas(transaction, mutation.payload.orderedVisaIds);
         break;
       }
       case "update_visa": {
@@ -395,11 +409,10 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
           throw new Error("forbidden");
         }
 
-        const visaRow = connection
-          .prepare("SELECT sort_order, value FROM visas WHERE id = ?")
-          .get(mutation.payload.visaId) as
-          | { sort_order: number; value: string }
-          | undefined;
+        const visaRow = await transaction.one<{ sort_order: number; value: string }>(
+          "SELECT sort_order, value FROM visas WHERE id = ?",
+          [mutation.payload.visaId]
+        );
 
         if (!visaRow) {
           break;
@@ -417,13 +430,14 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
             : visa.source,
         });
 
-        connection
-          .prepare("UPDATE visas SET value = ?, sort_order = ? WHERE id = ?")
-          .run(serialize(nextVisa), visaRow.sort_order, mutation.payload.visaId);
+        await transaction.run(
+          "UPDATE visas SET value = ?, sort_order = ? WHERE id = ?",
+          [serialize(nextVisa), visaRow.sort_order, mutation.payload.visaId]
+        );
         break;
       }
       case "reset_demo": {
-        resetUserState(connection, user);
+        await resetUserState(transaction, user);
         break;
       }
       default: {
@@ -432,8 +446,6 @@ export function applyMutation(user: AuthUser, mutation: AppMutation) {
       }
     }
 
-    return readUserState(connection, user.id);
+    return readUserState(transaction, user.id);
   });
-
-  return transaction();
 }

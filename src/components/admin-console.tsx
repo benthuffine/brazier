@@ -15,6 +15,7 @@ import {
 import { createPendingVisaSource, getVisaReviewStatusLabel } from "@/lib/visa-source";
 
 const blankTemplateVisaId = "__blank__";
+type AdminConsoleTab = "visas" | "requirements" | "documents" | "steps";
 
 interface NewVisaFormState {
   name: string;
@@ -77,6 +78,16 @@ function buildVisaId(countryCode: string, name: string, visas: Visa[]) {
 
 function sanitizeCountryCode(value: string) {
   return value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+}
+
+function getVisaRequirementCount(visa: Visa) {
+  return (
+    visa.baseRequirements.length +
+    visa.alternativeGroups.reduce(
+      (count, group) => count + group.requirements.length,
+      0
+    )
+  );
 }
 
 function buildCountryFromForm(form: NewCountryFormState): Country {
@@ -175,6 +186,7 @@ export function AdminConsole() {
     updateVisa,
     ready,
   } = useAppState();
+  const [activeTab, setActiveTab] = useState<AdminConsoleTab>("visas");
   const [selectedVisaId, setSelectedVisaId] = useState("");
   const [draft, setDraft] = useState<Visa | null>(null);
   const [newCountryForm, setNewCountryForm] =
@@ -235,6 +247,38 @@ export function AdminConsole() {
     normalizedCountryCode.length >= 2 &&
     newCountryForm.name.trim().length > 0 &&
     !countries.some((country) => country.code === normalizedCountryCode);
+  const tabs: Array<{
+    count: number;
+    id: AdminConsoleTab;
+    label: string;
+  }> = [
+    { id: "visas", label: "Visas", count: visas.length },
+    {
+      id: "requirements",
+      label: "Requirements",
+      count: draft ? getVisaRequirementCount(draft) : 0,
+    },
+    {
+      id: "documents",
+      label: "Documents",
+      count: draft?.documents.length ?? 0,
+    },
+    {
+      id: "steps",
+      label: "Application steps",
+      count: draft?.steps.length ?? 0,
+    },
+  ];
+  const requirementPreview = draft
+    ? [
+        ...draft.baseRequirements.map((requirement) => requirement.label),
+        ...draft.alternativeGroups.flatMap((group) =>
+          group.requirements.map((requirement) => requirement.label)
+        ),
+      ]
+        .filter(Boolean)
+        .slice(0, 4)
+    : [];
 
   const updateDraftValue = <K extends keyof Visa>(field: K, value: Visa[K]) => {
     setDraft((current) => (current ? { ...current, [field]: value } : current));
@@ -424,6 +468,11 @@ export function AdminConsole() {
     deleteVisa(draft.id);
   };
 
+  const focusVisaEditor = (visaId: string, nextTab: AdminConsoleTab = "visas") => {
+    setSelectedVisaId(visaId);
+    setActiveTab(nextTab);
+  };
+
   const buildReorderedVisaIds = (sourceId: string, targetId: string) => {
     const orderedIds = visas.map((visa) => visa.id);
     const sourceIndex = orderedIds.indexOf(sourceId);
@@ -440,7 +489,7 @@ export function AdminConsole() {
     return nextIds;
   };
 
-  const handleDragStart = (event: DragEvent<HTMLDivElement>, visaId: string) => {
+  const handleDragStart = (event: DragEvent<HTMLElement>, visaId: string) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", visaId);
     setDraggedVisaId(visaId);
@@ -461,284 +510,362 @@ export function AdminConsole() {
     }
   };
 
-  return (
-    <div className="stack-lg admin-shell">
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Admin MVP</p>
-            <h1>Visa content editor</h1>
+  const renderChecklistPanel = (
+    field: "documents" | "steps",
+    title: string,
+    description: string,
+    addLabel: string
+  ) => {
+    if (!draft) {
+      return (
+        <section className="admin-surface">
+          <div className="group-note">
+            Select a visa from the table first, then manage its {field}.
           </div>
-          <span className="pill">Desktop-first</span>
+        </section>
+      );
+    }
+
+    return (
+      <section className="admin-surface stack-lg">
+        <div className="admin-surface-header">
+          <div>
+            <p className="eyebrow">{title}</p>
+            <h2>{draft.name}</h2>
+          </div>
+          <div className="actions-row">
+            <button
+              className="button ghost"
+              onClick={() => setActiveTab("visas")}
+              type="button"
+            >
+              Back to visas
+            </button>
+            <button
+              className="button primary"
+              onClick={() => addChecklistItem(field)}
+              type="button"
+            >
+              {addLabel}
+            </button>
+          </div>
         </div>
-        <p className="muted">
-          Create visas from scratch or clone an existing route, then edit the
-          qualification logic, copy, workflow details, and source-review
-          metadata without touching SQLite by hand.
-        </p>
+        <p className="muted">{description}</p>
+        <div className="admin-list-editor">
+          {draft[field].map((item, index) => (
+            <article key={item.id} className="admin-list-editor-row">
+              <div className="admin-list-editor-fields">
+                <label className="field">
+                  <span>{title.slice(0, -1)} title</span>
+                  <input
+                    placeholder={`${title.slice(0, -1)} title`}
+                    value={item.title}
+                    onChange={(event) =>
+                      updateChecklistItem(field, index, {
+                        title: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Description</span>
+                  <textarea
+                    placeholder={`${title.slice(0, -1)} description`}
+                    rows={3}
+                    value={item.description}
+                    onChange={(event) =>
+                      updateChecklistItem(field, index, {
+                        description: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <button
+                className="button ghost"
+                onClick={() => removeChecklistItem(field, index)}
+                type="button"
+              >
+                Remove
+              </button>
+            </article>
+          ))}
+          {draft[field].length === 0 ? (
+            <div className="group-note">
+              No {field} yet. Use {addLabel.toLowerCase()} to create the first item.
+            </div>
+          ) : null}
+        </div>
       </section>
+    );
+  };
 
-      <div className="admin-grid">
-        <aside className="stack-md">
-          <section className="panel">
-            <div className="stack-md">
-              <div>
-                <p className="eyebrow">New country</p>
-                <h2>Add destination</h2>
-              </div>
-              <label className="field">
-                <span>Country name</span>
-                <input
-                  placeholder="Japan"
-                  value={newCountryForm.name}
-                  onChange={(event) =>
-                    setNewCountryForm((current) => ({
-                      ...current,
-                      name: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <div className="mini-form-grid">
-                <label className="field">
-                  <span>Code</span>
-                  <input
-                    placeholder="JP"
-                    value={newCountryForm.code}
-                    onChange={(event) =>
-                      setNewCountryForm((current) => ({
-                        ...current,
-                        code: sanitizeCountryCode(event.target.value),
-                      }))
-                    }
-                  />
-                </label>
-                <label className="field">
-                  <span>Flag</span>
-                  <input
-                    placeholder="🇯🇵"
-                    value={newCountryForm.flag}
-                    onChange={(event) =>
-                      setNewCountryForm((current) => ({
-                        ...current,
-                        flag: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-              </div>
-              <label className="field">
-                <span>Region</span>
-                <input
-                  placeholder="Asia"
-                  value={newCountryForm.region}
-                  onChange={(event) =>
-                    setNewCountryForm((current) => ({
-                      ...current,
-                      region: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <p className="admin-helper-copy">
-                New countries get default discovery-card copy so you can use them
-                immediately in visa creation. We can add full country editing next.
-              </p>
-              <button
-                className="button primary"
-                disabled={!canCreateCountry}
-                onClick={handleCreateCountry}
-                type="button"
-              >
-                Add country
-              </button>
-            </div>
-          </section>
+  const renderCatalogPanel = () => (
+    <div className="stack-lg">
+      <section className="admin-surface stack-lg">
+        <div className="admin-surface-header">
+          <div>
+            <p className="eyebrow">Visas</p>
+            <h2>Inline catalog editor</h2>
+          </div>
+          <p className="muted">
+            Click any row to edit inline. Drag rows to reorder the catalog.
+          </p>
+        </div>
+        <div className="admin-catalog-layout">
+          <div className="admin-table-shell">
+            <table className="admin-inline-table">
+              <thead>
+                <tr>
+                  <th>Country</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Processing</th>
+                  <th>Requirements</th>
+                  <th>Documents</th>
+                  <th>Steps</th>
+                  <th>Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visas.map((visa) => {
+                  const isSelected = draft?.id === visa.id;
+                  const rowVisa = isSelected && draft ? draft : visa;
+                  const rowCountry = countries.find(
+                    (country) => country.code === rowVisa.countryCode
+                  );
 
-          <section className="panel">
-            <div className="stack-md">
-              <div>
-                <p className="eyebrow">New visa</p>
-                <h2>Create visa</h2>
-              </div>
-              <label className="field">
-                <span>Visa name</span>
-                <input
-                  placeholder="Portugal Golden Visa"
-                  value={newVisaForm.name}
-                  onChange={(event) =>
-                    setNewVisaForm((current) => ({
-                      ...current,
-                      name: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <label className="field">
-                <span>Country</span>
-                <select
-                  value={newVisaForm.countryCode}
-                  onChange={(event) =>
-                    setNewVisaForm((current) => ({
-                      ...current,
-                      countryCode: event.target.value,
-                    }))
-                  }
-                >
-                  {countries.map((country) => (
-                    <option key={country.code} value={country.code}>
-                      {country.flag} {country.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span>Category</span>
-                <input
-                  value={newVisaForm.category}
-                  onChange={(event) =>
-                    setNewVisaForm((current) => ({
-                      ...current,
-                      category: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <label className="field">
-                <span>Starting point</span>
-                <select
-                  value={newVisaForm.templateVisaId}
-                  onChange={(event) =>
-                    setNewVisaForm((current) => ({
-                      ...current,
-                      templateVisaId: event.target.value,
-                    }))
-                  }
-                >
-                  <option value={blankTemplateVisaId}>Blank visa</option>
-                  {visas.map((visa) => (
-                    <option key={visa.id} value={visa.id}>
-                      {visa.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                className="button primary"
-                disabled={!canCreateVisa}
-                onClick={handleCreateVisa}
-                type="button"
-              >
-                Create and open
-              </button>
-            </div>
-          </section>
+                  return (
+                    <tr
+                      key={visa.id}
+                      className={`admin-table-row${isSelected ? " selected" : ""}${draggedVisaId === visa.id ? " dragging" : ""}${dropTargetVisaId === visa.id ? " drag-target" : ""}`}
+                      draggable
+                      onClick={() => focusVisaEditor(visa.id)}
+                      onDragEnd={() => {
+                        setDraggedVisaId(null);
+                        setDropTargetVisaId(null);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        if (draggedVisaId && draggedVisaId !== visa.id) {
+                          setDropTargetVisaId(visa.id);
+                        }
+                      }}
+                      onDragStart={(event) => handleDragStart(event, visa.id)}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        handleDrop(visa.id);
+                      }}
+                    >
+                      <td>
+                        {isSelected ? (
+                          <select
+                            className="admin-cell-select"
+                            value={rowVisa.countryCode}
+                            onChange={(event) =>
+                              updateDraftValue("countryCode", event.target.value)
+                            }
+                          >
+                            {countries.map((country) => (
+                              <option key={country.code} value={country.code}>
+                                {country.flag} {country.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <button
+                            className="admin-row-select"
+                            onClick={() => focusVisaEditor(visa.id)}
+                            type="button"
+                          >
+                            {rowCountry?.name ?? rowVisa.countryCode}
+                          </button>
+                        )}
+                      </td>
+                      <td>
+                        {isSelected ? (
+                          <input
+                            className="admin-cell-input"
+                            value={rowVisa.name}
+                            onChange={(event) =>
+                              updateDraftValue("name", event.target.value)
+                            }
+                          />
+                        ) : (
+                          <span className="admin-cell-primary">{rowVisa.name}</span>
+                        )}
+                      </td>
+                      <td>
+                        {isSelected ? (
+                          <input
+                            className="admin-cell-input"
+                            value={rowVisa.category}
+                            onChange={(event) =>
+                              updateDraftValue("category", event.target.value)
+                            }
+                          />
+                        ) : (
+                          rowVisa.category
+                        )}
+                      </td>
+                      <td>
+                        {isSelected ? (
+                          <input
+                            className="admin-cell-input"
+                            value={rowVisa.processingTime}
+                            onChange={(event) =>
+                              updateDraftValue("processingTime", event.target.value)
+                            }
+                          />
+                        ) : (
+                          rowVisa.processingTime || "TBD"
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          className="admin-inline-link"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            focusVisaEditor(visa.id, "requirements");
+                          }}
+                          type="button"
+                        >
+                          {getVisaRequirementCount(rowVisa)} rules
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          className="admin-inline-link"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            focusVisaEditor(visa.id, "documents");
+                          }}
+                          type="button"
+                        >
+                          {rowVisa.documents.length} items
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          className="admin-inline-link"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            focusVisaEditor(visa.id, "steps");
+                          }}
+                          type="button"
+                        >
+                          {rowVisa.steps.length} items
+                        </button>
+                      </td>
+                      <td>
+                        {isSelected ? (
+                          <label className="admin-inline-toggle">
+                            <input
+                              checked={rowVisa.isActive}
+                              onChange={(event) =>
+                                updateDraftValue("isActive", event.target.checked)
+                              }
+                              type="checkbox"
+                            />
+                            <span>{rowVisa.isActive ? "Yes" : "No"}</span>
+                          </label>
+                        ) : (
+                          <span>{rowVisa.isActive ? "Yes" : "No"}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-          <section className="panel">
-            <div className="stack-sm">
-              {visas.map((visa) => (
-                <div
-                  key={visa.id}
-                  className={`admin-list-item${draggedVisaId === visa.id ? " dragging" : ""}${dropTargetVisaId === visa.id ? " drag-target" : ""}`}
-                  draggable
-                  onDragEnd={() => {
-                    setDraggedVisaId(null);
-                    setDropTargetVisaId(null);
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    if (draggedVisaId && draggedVisaId !== visa.id) {
-                      setDropTargetVisaId(visa.id);
-                    }
-                  }}
-                  onDragStart={(event) => handleDragStart(event, visa.id)}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    handleDrop(visa.id);
-                  }}
-                >
+          <aside className="admin-context-card">
+            {draft ? (
+              <>
+                <div className="stack-sm">
+                  <p className="eyebrow">Selected visa</p>
+                  <h3>{draft.name}</h3>
+                  <p className="muted">
+                    {selectedCountry?.flag ?? "🌍"} {selectedCountry?.name ?? "Country"} ·{" "}
+                    {draft.category}
+                  </p>
+                </div>
+
+                <div className="admin-context-stats">
+                  <div className="admin-context-stat">
+                    <span>Requirements</span>
+                    <strong>{getVisaRequirementCount(draft)}</strong>
+                  </div>
+                  <div className="admin-context-stat">
+                    <span>Documents</span>
+                    <strong>{draft.documents.length}</strong>
+                  </div>
+                  <div className="admin-context-stat">
+                    <span>Steps</span>
+                    <strong>{draft.steps.length}</strong>
+                  </div>
+                </div>
+
+                <div className="stack-sm">
+                  <strong>Requirements preview</strong>
+                  <div className="admin-chip-list">
+                    {requirementPreview.map((label) => (
+                      <span key={label} className="admin-chip">
+                        {label}
+                      </span>
+                    ))}
+                    {requirementPreview.length === 0 ? (
+                      <span className="muted">No requirements yet.</span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="actions-row">
                   <button
-                    className={`list-button${selectedVisaId === visa.id ? " active" : ""}`}
-                    onClick={() => setSelectedVisaId(visa.id)}
+                    className="button ghost"
+                    onClick={() => setActiveTab("requirements")}
                     type="button"
                   >
-                    <strong>{visa.name}</strong>
-                    <div className="list-button-meta">
-                      <span className="muted">
-                        {countries.find((country) => country.code === visa.countryCode)?.name}
-                      </span>
-                      <div className="list-meta-tags">
-                        <span
-                          className={`tag review-tag review-${visa.source.reviewStatus}`}
-                        >
-                          {getVisaReviewStatusLabel(visa.source.reviewStatus)}
-                        </span>
-                        <span className="tag">{visa.isActive ? "Active" : "Archived"}</span>
-                      </div>
-                    </div>
-                    <span className="list-drag-copy">Drag to reorder</span>
+                    Edit requirements
+                  </button>
+                  <button
+                    className="button ghost"
+                    onClick={() => setActiveTab("documents")}
+                    type="button"
+                  >
+                    Edit documents
+                  </button>
+                  <button
+                    className="button ghost"
+                    onClick={() => setActiveTab("steps")}
+                    type="button"
+                  >
+                    Edit steps
                   </button>
                 </div>
-              ))}
-            </div>
-          </section>
-        </aside>
-
-        <section className="panel">
-          {draft ? (
-            <>
-              <div className="panel-header">
-                <div>
-                  <p className="eyebrow">
-                    {selectedCountry?.flag} {selectedCountry?.name}
-                  </p>
-                  <h2>{draft.name}</h2>
-                </div>
-                <div className="list-meta-tags">
-                  <span className={`tag review-tag review-${draft.source.reviewStatus}`}>
-                    {getVisaReviewStatusLabel(draft.source.reviewStatus)}
-                  </span>
-                  <span className="pill">{draft.id}</span>
-                </div>
+              </>
+            ) : (
+              <div className="group-note">
+                Select a visa row to inspect its requirements, documents, and steps.
               </div>
+            )}
+          </aside>
+        </div>
+      </section>
 
+      {draft ? (
+        <>
+          <div className="admin-detail-grid">
+            <article className="admin-surface stack-md">
+              <div className="space-between">
+                <div>
+                  <p className="eyebrow">Visa copy</p>
+                  <h3>Summary and description</h3>
+                </div>
+                <span className="pill">{draft.id}</span>
+              </div>
               <div className="form-grid">
-                <label className="field">
-                  <span>Visa name</span>
-                  <input
-                    value={draft.name}
-                    onChange={(event) => updateDraftValue("name", event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Category</span>
-                  <input
-                    value={draft.category}
-                    onChange={(event) => updateDraftValue("category", event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Country</span>
-                  <select
-                    value={draft.countryCode}
-                    onChange={(event) => updateDraftValue("countryCode", event.target.value)}
-                  >
-                    {countries.map((country) => (
-                      <option key={country.code} value={country.code}>
-                        {country.flag} {country.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Processing time</span>
-                  <input
-                    value={draft.processingTime}
-                    onChange={(event) =>
-                      updateDraftValue("processingTime", event.target.value)
-                    }
-                  />
-                </label>
                 <label className="field field-span-2">
                   <span>Summary</span>
                   <textarea
@@ -757,279 +884,428 @@ export function AdminConsole() {
                     rows={5}
                   />
                 </label>
-                <label className="field checkbox-field">
+              </div>
+            </article>
+
+            <article className="admin-surface stack-md">
+              <div className="space-between">
+                <strong>Source and review</strong>
+                <span className={`tag review-tag review-${draft.source.reviewStatus}`}>
+                  {getVisaReviewStatusLabel(draft.source.reviewStatus)}
+                </span>
+              </div>
+              <div className="form-grid">
+                <label className="field">
+                  <span>Official authority</span>
                   <input
-                    checked={draft.isActive}
-                    onChange={(event) => updateDraftValue("isActive", event.target.checked)}
-                    type="checkbox"
+                    placeholder="Ministry or immigration authority"
+                    value={draft.source.authorityName}
+                    onChange={(event) =>
+                      updateSourceValue("authorityName", event.target.value)
+                    }
                   />
-                  <span>Visa active</span>
+                </label>
+                <label className="field">
+                  <span>Review status</span>
+                  <select
+                    value={draft.source.reviewStatus}
+                    onChange={(event) =>
+                      updateSourceValue(
+                        "reviewStatus",
+                        event.target.value as VisaSource["reviewStatus"]
+                      )
+                    }
+                  >
+                    <option value="pending_source">Source pending</option>
+                    <option value="needs_review">Needs review</option>
+                    <option value="reviewed">Reviewed</option>
+                    <option value="stale">Review stale</option>
+                  </select>
+                </label>
+                <label className="field field-span-2">
+                  <span>Official URL</span>
+                  <input
+                    placeholder="https://..."
+                    value={draft.source.officialUrl}
+                    onChange={(event) =>
+                      updateSourceValue("officialUrl", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Last reviewed</span>
+                  <input
+                    type="date"
+                    value={draft.source.lastReviewedAt}
+                    onChange={(event) =>
+                      updateSourceValue("lastReviewedAt", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="field field-span-2">
+                  <span>Review notes</span>
+                  <textarea
+                    placeholder="Internal review notes, update caveats, or research reminders."
+                    rows={4}
+                    value={draft.source.reviewNotes}
+                    onChange={(event) =>
+                      updateSourceValue("reviewNotes", event.target.value)
+                    }
+                  />
                 </label>
               </div>
+            </article>
+          </div>
 
-              <div className="actions-row">
+          <div className="admin-detail-grid">
+            <article className="admin-surface stack-md">
+              <div className="space-between">
+                <strong>Optional boosts</strong>
                 <button
-                  className="button primary"
-                  onClick={() => updateVisa(draft.id, draft)}
+                  className="button ghost"
+                  onClick={() => addStringListItem("optionalBoosts")}
                   type="button"
                 >
-                  Save changes
-                </button>
-                <button
-                  className="button secondary"
-                  onClick={handleArchiveToggle}
-                  type="button"
-                >
-                  {draft.isActive ? "Archive visa" : "Restore visa"}
-                </button>
-                <button
-                  className="button danger"
-                  onClick={handleDeleteSelectedVisa}
-                  type="button"
-                >
-                  Delete visa
+                  Add boost
                 </button>
               </div>
-
-              <article className="subtle-card stack-md">
-                <div className="space-between">
-                  <strong>Source and review</strong>
-                  <span className={`tag review-tag review-${draft.source.reviewStatus}`}>
-                    {getVisaReviewStatusLabel(draft.source.reviewStatus)}
-                  </span>
+              {draft.optionalBoosts.map((boost, index) => (
+                <div key={`${draft.id}-boost-${index}`} className="stack-sm">
+                  <input
+                    value={boost}
+                    onChange={(event) =>
+                      updateStringList("optionalBoosts", index, event.target.value)
+                    }
+                  />
+                  <button
+                    className="button ghost"
+                    onClick={() => removeStringListItem("optionalBoosts", index)}
+                    type="button"
+                  >
+                    Remove
+                  </button>
                 </div>
-                <div className="form-grid">
-                  <label className="field">
-                    <span>Official authority</span>
-                    <input
-                      placeholder="Ministry or immigration authority"
-                      value={draft.source.authorityName}
-                      onChange={(event) =>
-                        updateSourceValue("authorityName", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Review status</span>
-                    <select
-                      value={draft.source.reviewStatus}
-                      onChange={(event) =>
-                        updateSourceValue(
-                          "reviewStatus",
-                          event.target.value as VisaSource["reviewStatus"]
-                        )
-                      }
-                    >
-                      <option value="pending_source">Source pending</option>
-                      <option value="needs_review">Needs review</option>
-                      <option value="reviewed">Reviewed</option>
-                      <option value="stale">Review stale</option>
-                    </select>
-                  </label>
-                  <label className="field field-span-2">
-                    <span>Official URL</span>
-                    <input
-                      placeholder="https://..."
-                      value={draft.source.officialUrl}
-                      onChange={(event) =>
-                        updateSourceValue("officialUrl", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Last reviewed</span>
-                    <input
-                      type="date"
-                      value={draft.source.lastReviewedAt}
-                      onChange={(event) =>
-                        updateSourceValue("lastReviewedAt", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className="field field-span-2">
-                    <span>Review notes</span>
-                    <textarea
-                      placeholder="Internal review notes, update caveats, or research reminders."
-                      rows={4}
-                      value={draft.source.reviewNotes}
-                      onChange={(event) =>
-                        updateSourceValue("reviewNotes", event.target.value)
-                      }
-                    />
-                  </label>
-                </div>
-              </article>
+              ))}
+              {draft.optionalBoosts.length === 0 ? (
+                <div className="group-note">No boosts added for this visa yet.</div>
+              ) : null}
+            </article>
 
-              <AdminRequirementsEditor
-                alternativeGroups={draft.alternativeGroups}
-                baseRequirements={draft.baseRequirements}
-                onAlternativeGroupsChange={(groups) =>
-                  updateDraftValue("alternativeGroups", groups)
-                }
-                onBaseRequirementsChange={(requirements) =>
-                  updateDraftValue("baseRequirements", requirements)
+            <article className="admin-surface stack-md">
+              <div className="space-between">
+                <strong>Premium insights</strong>
+                <button
+                  className="button ghost"
+                  onClick={() => addStringListItem("premiumInsights")}
+                  type="button"
+                >
+                  Add insight
+                </button>
+              </div>
+              {draft.premiumInsights.map((insight, index) => (
+                <div key={`${draft.id}-insight-${index}`} className="stack-sm">
+                  <textarea
+                    value={insight}
+                    onChange={(event) =>
+                      updateStringList("premiumInsights", index, event.target.value)
+                    }
+                    rows={3}
+                  />
+                  <button
+                    className="button ghost"
+                    onClick={() => removeStringListItem("premiumInsights", index)}
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {draft.premiumInsights.length === 0 ? (
+                <div className="group-note">No premium insights added for this visa yet.</div>
+              ) : null}
+            </article>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+
+  const renderCurrentPanel = () => {
+    if (activeTab === "requirements") {
+      return draft ? (
+        <section className="admin-surface stack-lg">
+          <div className="admin-surface-header">
+            <div>
+              <p className="eyebrow">Requirements</p>
+              <h2>{draft.name}</h2>
+            </div>
+            <div className="actions-row">
+              <button
+                className="button ghost"
+                onClick={() => setActiveTab("visas")}
+                type="button"
+              >
+                Back to visas
+              </button>
+            </div>
+          </div>
+          <p className="muted">
+            Build base requirements and alternative pathways for the selected visa.
+          </p>
+          <AdminRequirementsEditor
+            alternativeGroups={draft.alternativeGroups}
+            baseRequirements={draft.baseRequirements}
+            onAlternativeGroupsChange={(groups) =>
+              updateDraftValue("alternativeGroups", groups)
+            }
+            onBaseRequirementsChange={(requirements) =>
+              updateDraftValue("baseRequirements", requirements)
+            }
+          />
+        </section>
+      ) : (
+        <section className="admin-surface">
+          <div className="group-note">
+            Select a visa from the table first, then manage its requirements.
+          </div>
+        </section>
+      );
+    }
+
+    if (activeTab === "documents") {
+      return renderChecklistPanel(
+        "documents",
+        "Documents",
+        "Document items stay scoped to the selected visa, but the editor layout mirrors the admin mockup's global workbench.",
+        "Add document"
+      );
+    }
+
+    if (activeTab === "steps") {
+      return renderChecklistPanel(
+        "steps",
+        "Steps",
+        "Application steps are edited in a dedicated tab so the main visa table stays compact and fast to scan.",
+        "Add step"
+      );
+    }
+
+    return renderCatalogPanel();
+  };
+
+  return (
+    <div className="admin-workbench">
+      <aside className="admin-rail">
+        <div className="admin-rail-brand">
+          <p className="eyebrow">Admin</p>
+          <strong>Visa catalog</strong>
+          <span>
+            {visas.length} visas · {countries.length} countries
+          </span>
+        </div>
+
+        <div className="admin-tab-list">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              className={`admin-tab-button${activeTab === tab.id ? " active" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+              type="button"
+            >
+              <span>{tab.label}</span>
+              <strong>{tab.count}</strong>
+            </button>
+          ))}
+        </div>
+
+        <section className="admin-rail-card stack-md">
+          <div>
+            <p className="eyebrow">New visa</p>
+            <h2>Create visa</h2>
+          </div>
+          <label className="field">
+            <span>Visa name</span>
+            <input
+              placeholder="Portugal Golden Visa"
+              value={newVisaForm.name}
+              onChange={(event) =>
+                setNewVisaForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label className="field">
+            <span>Country</span>
+            <select
+              value={newVisaForm.countryCode}
+              onChange={(event) =>
+                setNewVisaForm((current) => ({
+                  ...current,
+                  countryCode: event.target.value,
+                }))
+              }
+            >
+              {countries.map((country) => (
+                <option key={country.code} value={country.code}>
+                  {country.flag} {country.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Category</span>
+            <input
+              value={newVisaForm.category}
+              onChange={(event) =>
+                setNewVisaForm((current) => ({
+                  ...current,
+                  category: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label className="field">
+            <span>Starting point</span>
+            <select
+              value={newVisaForm.templateVisaId}
+              onChange={(event) =>
+                setNewVisaForm((current) => ({
+                  ...current,
+                  templateVisaId: event.target.value,
+                }))
+              }
+            >
+              <option value={blankTemplateVisaId}>Blank visa</option>
+              {visas.map((visa) => (
+                <option key={visa.id} value={visa.id}>
+                  {visa.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="button primary"
+            disabled={!canCreateVisa}
+            onClick={handleCreateVisa}
+            type="button"
+          >
+            Create and open
+          </button>
+        </section>
+
+        <section className="admin-rail-card stack-md">
+          <div>
+            <p className="eyebrow">New country</p>
+            <h2>Add destination</h2>
+          </div>
+          <label className="field">
+            <span>Country name</span>
+            <input
+              placeholder="Japan"
+              value={newCountryForm.name}
+              onChange={(event) =>
+                setNewCountryForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <div className="mini-form-grid">
+            <label className="field">
+              <span>Code</span>
+              <input
+                placeholder="JP"
+                value={newCountryForm.code}
+                onChange={(event) =>
+                  setNewCountryForm((current) => ({
+                    ...current,
+                    code: sanitizeCountryCode(event.target.value),
+                  }))
                 }
               />
-
-              <div className="two-up">
-                <article className="subtle-card stack-md">
-                  <div className="space-between">
-                    <strong>Optional boosts</strong>
-                    <button
-                      className="button ghost"
-                      onClick={() => addStringListItem("optionalBoosts")}
-                      type="button"
-                    >
-                      Add boost
-                    </button>
-                  </div>
-                  {draft.optionalBoosts.map((boost, index) => (
-                    <div key={`${draft.id}-boost-${index}`} className="stack-sm">
-                      <input
-                        value={boost}
-                        onChange={(event) =>
-                          updateStringList("optionalBoosts", index, event.target.value)
-                        }
-                      />
-                      <button
-                        className="button ghost"
-                        onClick={() => removeStringListItem("optionalBoosts", index)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </article>
-
-                <article className="subtle-card stack-md">
-                  <div className="space-between">
-                    <strong>Premium insights</strong>
-                    <button
-                      className="button ghost"
-                      onClick={() => addStringListItem("premiumInsights")}
-                      type="button"
-                    >
-                      Add insight
-                    </button>
-                  </div>
-                  {draft.premiumInsights.map((insight, index) => (
-                    <div key={`${draft.id}-insight-${index}`} className="stack-sm">
-                      <textarea
-                        value={insight}
-                        onChange={(event) =>
-                          updateStringList("premiumInsights", index, event.target.value)
-                        }
-                        rows={3}
-                      />
-                      <button
-                        className="button ghost"
-                        onClick={() => removeStringListItem("premiumInsights", index)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </article>
-              </div>
-
-              <div className="two-up">
-                <article className="subtle-card stack-md">
-                  <div className="space-between">
-                    <strong>Documents</strong>
-                    <button
-                      className="button ghost"
-                      onClick={() => addChecklistItem("documents")}
-                      type="button"
-                    >
-                      Add document
-                    </button>
-                  </div>
-                  {draft.documents.map((document, index) => (
-                    <div key={document.id} className="stack-sm">
-                      <input
-                        placeholder="Document title"
-                        value={document.title}
-                        onChange={(event) =>
-                          updateChecklistItem("documents", index, {
-                            title: event.target.value,
-                          })
-                        }
-                      />
-                      <textarea
-                        placeholder="Document description"
-                        rows={3}
-                        value={document.description}
-                        onChange={(event) =>
-                          updateChecklistItem("documents", index, {
-                            description: event.target.value,
-                          })
-                        }
-                      />
-                      <button
-                        className="button ghost"
-                        onClick={() => removeChecklistItem("documents", index)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </article>
-
-                <article className="subtle-card stack-md">
-                  <div className="space-between">
-                    <strong>Application steps</strong>
-                    <button
-                      className="button ghost"
-                      onClick={() => addChecklistItem("steps")}
-                      type="button"
-                    >
-                      Add step
-                    </button>
-                  </div>
-                  {draft.steps.map((step, index) => (
-                    <div key={step.id} className="stack-sm">
-                      <input
-                        placeholder="Step title"
-                        value={step.title}
-                        onChange={(event) =>
-                          updateChecklistItem("steps", index, {
-                            title: event.target.value,
-                          })
-                        }
-                      />
-                      <textarea
-                        placeholder="Step description"
-                        rows={3}
-                        value={step.description}
-                        onChange={(event) =>
-                          updateChecklistItem("steps", index, {
-                            description: event.target.value,
-                          })
-                        }
-                      />
-                      <button
-                        className="button ghost"
-                        onClick={() => removeChecklistItem("steps", index)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </article>
-              </div>
-            </>
-          ) : (
-            <div className="group-note">
-              No visa selected. Create a new visa from the sidebar, or drag the
-              existing catalog order there once records are present.
-            </div>
-          )}
+            </label>
+            <label className="field">
+              <span>Flag</span>
+              <input
+                placeholder="🇯🇵"
+                value={newCountryForm.flag}
+                onChange={(event) =>
+                  setNewCountryForm((current) => ({
+                    ...current,
+                    flag: event.target.value,
+                  }))
+                }
+              />
+            </label>
+          </div>
+          <label className="field">
+            <span>Region</span>
+            <input
+              placeholder="Asia"
+              value={newCountryForm.region}
+              onChange={(event) =>
+                setNewCountryForm((current) => ({
+                  ...current,
+                  region: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <button
+            className="button primary"
+            disabled={!canCreateCountry}
+            onClick={handleCreateCountry}
+            type="button"
+          >
+            Add country
+          </button>
         </section>
-      </div>
+      </aside>
+
+      <section className="admin-board">
+        <div className="admin-board-header">
+          <div>
+            <p className="eyebrow">Admin workbench</p>
+            <h1>
+              {draft ? `${selectedCountry?.flag ?? "🌍"} ${draft.name}` : "Visa content editor"}
+            </h1>
+            <p className="muted">
+              The desktop shell now follows the latest mockup: left tabs, inline
+              editing, and focused editors for requirements, documents, and steps.
+            </p>
+          </div>
+          {draft ? (
+            <div className="actions-row">
+              <button
+                className="button primary"
+                onClick={() => updateVisa(draft.id, draft)}
+                type="button"
+              >
+                Save changes
+              </button>
+              <button
+                className="button secondary"
+                onClick={handleArchiveToggle}
+                type="button"
+              >
+                {draft.isActive ? "Archive visa" : "Restore visa"}
+              </button>
+              <button
+                className="button danger"
+                onClick={handleDeleteSelectedVisa}
+                type="button"
+              >
+                Delete visa
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {renderCurrentPanel()}
+      </section>
     </div>
   );
 }

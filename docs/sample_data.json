@@ -1,0 +1,660 @@
+{
+  "requirements": [
+    {
+      "requirement_id": "REQ001",
+      "name": "Valid health insurance",
+      "description": "Applicant must have valid health insurance covering the destination country",
+      "operator": "BOOLEAN"
+    },
+    {
+      "requirement_id": "REQ002",
+      "name": "Minimum monthly income",
+      "description": "Applicant must meet minimum income threshold",
+      "operator": ">="
+    },
+    {
+      "requirement_id": "REQ003",
+      "name": "Clean criminal record",
+      "description": "Applicant must provide a police clearance certificate",
+      "operator": "BOOLEAN"
+    },
+    {
+      "requirement_id": "REQ004",
+      "name": "Proof of accommodation",
+      "description": "Applicant must show rental contract, deed, or booking",
+      "operator": ""
+    },
+    {
+      "requirement_id": "REQ005",
+      "name": "Minimum savings",
+      "description": "Applicant must show minimum savings",
+      "operator": ">="
+    },
+    {
+      "requirement_id": "REQ006",
+      "name": "Language proficiency",
+      "description": "Applicant must meet minimum language level",
+      "operator": ">="
+    },
+    {
+      "requirement_id": "REQ007",
+      "name": "Remote work",
+      "description": "Applicant must work remotely for a foreign employer or foreign clients",
+      "operator": ""
+    },
+    {
+      "requirement_id": "REQ008",
+      "name": "Family relationship",
+      "description": "Applicant must be a qualifying family member of the sponsor",
+      "operator": ""
+    },
+    {
+      "requirement_id": "REQ009",
+      "name": "Sponsor legal status",
+      "description": "Sponsor must be a legal resident or citizen of the destination country",
+      "operator": ""
+    },
+    {
+      "requirement_id": "REQ010",
+      "name": "Minimum sponsor income",
+      "description": "Sponsor must meet minimum income threshold to support applicant",
+      "operator": ">="
+    }
+  ],
+  "documents": [
+    {
+      "document_id": "DOC001",
+      "title": "Passport",
+      "description": "Valid passport with required validity"
+    },
+    {
+      "document_id": "DOC002",
+      "title": "Proof of Income",
+      "description": "Payslips, invoices, or tax returns"
+    },
+    {
+      "document_id": "DOC003",
+      "title": "Criminal Record Certificate",
+      "description": "Police clearance from relevant jurisdictions"
+    },
+    {
+      "document_id": "DOC004",
+      "title": "Health Insurance Policy",
+      "description": "Document showing valid health coverage"
+    },
+    {
+      "document_id": "DOC005",
+      "title": "Proof of Accommodation",
+      "description": "Rental contract, deed, or booking"
+    },
+    {
+      "document_id": "DOC006",
+      "title": "Cover Letter",
+      "description": "Explanation of intent and relocation plan"
+    },
+    {
+      "document_id": "DOC007",
+      "title": "Language Test Certificate",
+      "description": "Approved language test results"
+    },
+    {
+      "document_id": "DOC008",
+      "title": "Sponsor Income Evidence",
+      "description": "Sponsor’s payslips, tax returns, or bank statements"
+    },
+    {
+      "document_id": "DOC009",
+      "title": "Proof of Relationship",
+      "description": "Marriage certificate, birth certificate, or cohabitation evidence"
+    }
+  ],
+  "visas": [
+    {
+      "visa_id": "VISA_PT_D8",
+      "visa_name": "Portugal Digital Nomad Visa (D8)",
+      "country": "Portugal",
+      "visa_type": "Worker (remote)",
+      "description": "Residence visa for remote workers earning at least 4× Portuguese minimum wage.",
+      "processing_time_days": 60
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "visa_name": "Portugal D7 Passive Income Visa",
+      "country": "Portugal",
+      "visa_type": "Retiree",
+      "description": "Residence visa for individuals with stable passive income such as pensions or investments.",
+      "processing_time_days": 75
+    },
+    {
+      "visa_id": "VISA_PT_FAM",
+      "visa_name": "Portugal Family Reunification Visa",
+      "country": "Portugal",
+      "visa_type": "Family reunification",
+      "description": "Visa for close family members of legal residents in Portugal.",
+      "processing_time_days": 75
+    },
+    {
+      "visa_id": "VISA_CA_FSW",
+      "visa_name": "Canada Express Entry – Federal Skilled Worker",
+      "country": "Canada",
+      "visa_type": "Skilled worker",
+      "description": "Points-based permanent residence pathway for skilled workers.",
+      "processing_time_days": 180
+    },
+    {
+      "visa_id": "VISA_CA_SPOUSE",
+      "visa_name": "Canada Spouse or Partner Sponsorship",
+      "country": "Canada",
+      "visa_type": "Family reunification",
+      "description": "Permanent residence pathway for spouses or partners of Canadian citizens or PRs.",
+      "processing_time_days": 365
+    },
+    {
+      "visa_id": "VISA_CA_SUPER",
+      "visa_name": "Canada Super Visa (Parents/Grandparents)",
+      "country": "Canada",
+      "visa_type": "Family reunification",
+      "description": "Long-term multiple-entry visa for parents and grandparents of Canadian citizens or PRs.",
+      "processing_time_days": 210
+    },
+    {
+      "visa_id": "VISA_UK_SKILLED",
+      "visa_name": "UK Skilled Worker Visa",
+      "country": "United Kingdom",
+      "visa_type": "Skilled worker",
+      "description": "Work visa for non-UK nationals with a job offer from a licensed sponsor.",
+      "processing_time_days": 56
+    },
+    {
+      "visa_id": "VISA_UK_FAMILY",
+      "visa_name": "UK Family Visa (Partner)",
+      "country": "United Kingdom",
+      "visa_type": "Family reunification",
+      "description": "Visa for spouses or partners of British citizens or settled persons.",
+      "processing_time_days": 120
+    },
+    {
+      "visa_id": "VISA_UK_HEALTH",
+      "visa_name": "UK Health and Care Worker Visa",
+      "country": "United Kingdom",
+      "visa_type": "Skilled worker",
+      "description": "Visa for qualified health and care professionals with job offers from eligible employers.",
+      "processing_time_days": 56
+    },
+    {
+      "visa_id": "VISA_UK_HEALTH",
+      "visa_name": "UK Health and Care Worker Visa",
+      "country": "United Kingdom",
+      "visa_type": "Skilled worker",
+      "description": "Visa for qualified health and care professionals with job offers from eligible employers.",
+      "processing_time_days": 56
+    }
+  ],
+  "visa_requirements": [
+    {
+      "visa_id": "VISA_PT_D8",
+      "requirement_id": "REQ001",
+      "value": true,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_PT_D8",
+      "requirement_id": "REQ002",
+      "value": 3680,
+      "unit": "EUR/month"
+    },
+    {
+      "visa_id": "VISA_PT_D8",
+      "requirement_id": "REQ003",
+      "value": true,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_PT_D8",
+      "requirement_id": "REQ005",
+      "value": 11040,
+      "unit": "EUR"
+    },
+    {
+      "visa_id": "VISA_PT_D8",
+      "requirement_id": "REQ004",
+      "value": null,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_PT_D8",
+      "requirement_id": "REQ007",
+      "value": null,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "requirement_id": "REQ001",
+      "value": true,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "requirement_id": "REQ002",
+      "value": 1000,
+      "unit": "EUR/month"
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "requirement_id": "REQ003",
+      "value": true,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "requirement_id": "REQ005",
+      "value": 10000,
+      "unit": "EUR"
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "requirement_id": "REQ004",
+      "value": null,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_PT_FAM",
+      "requirement_id": "REQ008",
+      "value": null,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_PT_FAM",
+      "requirement_id": "REQ009",
+      "value": null,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_PT_FAM",
+      "requirement_id": "REQ003",
+      "value": true,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_CA_FSW",
+      "requirement_id": "REQ006",
+      "value": 7,
+      "unit": "CLB"
+    },
+    {
+      "visa_id": "VISA_CA_FSW",
+      "requirement_id": "REQ005",
+      "value": 13000,
+      "unit": "CAD"
+    },
+    {
+      "visa_id": "VISA_CA_FSW",
+      "requirement_id": "REQ003",
+      "value": true,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_CA_SPOUSE",
+      "requirement_id": "REQ008",
+      "value": null,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_CA_SPOUSE",
+      "requirement_id": "REQ009",
+      "value": null,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_CA_SPOUSE",
+      "requirement_id": "REQ003",
+      "value": true,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_CA_SUPER",
+      "requirement_id": "REQ009",
+      "value": null,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_CA_SUPER",
+      "requirement_id": "REQ010",
+      "value": null,
+      "unit": "LICO"
+    },
+    {
+      "visa_id": "VISA_CA_SUPER",
+      "requirement_id": "REQ001",
+      "value": true,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_CA_SUPER",
+      "requirement_id": "REQ003",
+      "value": true,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_UK_SKILLED",
+      "requirement_id": "REQ002",
+      "value": 26000,
+      "unit": "GBP"
+    },
+    {
+      "visa_id": "VISA_UK_SKILLED",
+      "requirement_id": "REQ006",
+      "value": 1,
+      "unit": "CEFR-B"
+    },
+    {
+      "visa_id": "VISA_UK_SKILLED",
+      "requirement_id": "REQ003",
+      "value": true,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_UK_FAMILY",
+      "requirement_id": "REQ008",
+      "value": null,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_UK_FAMILY",
+      "requirement_id": "REQ009",
+      "value": null,
+      "unit": null
+    },
+    {
+      "visa_id": "VISA_UK_FAMILY",
+      "requirement_id": "REQ010",
+      "value": 18600,
+      "unit": "GBP"
+    },
+    {
+      "visa_id": "VISA_UK_HEALTH",
+      "requirement_id": "REQ002",
+      "value": 20000,
+      "unit": "GBP"
+    },
+    {
+      "visa_id": "VISA_UK_HEALTH",
+      "requirement_id": "REQ006",
+      "value": 1,
+      "unit": "CEFR-B"
+    },
+    {
+      "visa_id": "VISA_UK_HEALTH",
+      "requirement_id": "REQ003",
+      "value": true,
+      "unit": null
+    }
+  ],
+  "visa_documents": [
+    {
+      "visa_id": "VISA_PT_D8",
+      "document_id": "DOC001",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_D8",
+      "document_id": "DOC002",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_D8",
+      "document_id": "DOC003",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_D8",
+      "document_id": "DOC004",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_D8",
+      "document_id": "DOC006",
+      "document_type": "Optional"
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "document_id": "DOC001",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "document_id": "DOC002",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "document_id": "DOC003",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "document_id": "DOC004",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_D7",
+      "document_id": "DOC005",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_FAM",
+      "document_id": "DOC001",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_FAM",
+      "document_id": "DOC003",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_FAM",
+      "document_id": "DOC009",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_PT_FAM",
+      "document_id": "DOC008",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_FSW",
+      "document_id": "DOC001",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_FSW",
+      "document_id": "DOC007",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_FSW",
+      "document_id": "DOC002",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_FSW",
+      "document_id": "DOC003",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_SPOUSE",
+      "document_id": "DOC001",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_SPOUSE",
+      "document_id": "DOC009",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_SPOUSE",
+      "document_id": "DOC008",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_SPOUSE",
+      "document_id": "DOC003",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_SUPER",
+      "document_id": "DOC001",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_SUPER",
+      "document_id": "DOC009",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_SUPER",
+      "document_id": "DOC008",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_CA_SUPER",
+      "document_id": "DOC004",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_UK_SKILLED",
+      "document_id": "DOC001",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_UK_SKILLED",
+      "document_id": "DOC002",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_UK_SKILLED",
+      "document_id": "DOC007",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_UK_FAMILY",
+      "document_id": "DOC001",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_UK_FAMILY",
+      "document_id": "DOC009",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_UK_FAMILY",
+      "document_id": "DOC008",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_UK_HEALTH",
+      "document_id": "DOC001",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_UK_HEALTH",
+      "document_id": "DOC002",
+      "document_type": "Mandatory"
+    },
+    {
+      "visa_id": "VISA_UK_HEALTH",
+      "document_id": "DOC007",
+      "document_type": "Mandatory"
+    }
+  ],
+  "visa_steps": [
+    {
+      "step_id": "STEP_PT_D8_1",
+      "visa_id": "VISA_PT_D8",
+      "step_type": "Virtual",
+      "order": 1,
+      "title": "Gather Documentation",
+      "description": "Collect all required documents, translations, and apostilles."
+    },
+    {
+      "step_id": "STEP_PT_D8_2",
+      "visa_id": "VISA_PT_D8",
+      "step_type": "Virtual",
+      "order": 2,
+      "title": "Book Consulate Appointment",
+      "description": "Schedule an appointment at the Portuguese consulate."
+    },
+    {
+      "step_id": "STEP_PT_D8_3",
+      "visa_id": "VISA_PT_D8",
+      "step_type": "Physical",
+      "order": 3,
+      "title": "Attend Consular Interview",
+      "description": "Submit documents and provide biometrics."
+    },
+    {
+      "step_id": "STEP_PT_D7_1",
+      "visa_id": "VISA_PT_D7",
+      "step_type": "Virtual",
+      "order": 1,
+      "title": "Prepare Financial Evidence",
+      "description": "Collect proof of passive income and savings."
+    },
+    {
+      "step_id": "STEP_PT_FAM_1",
+      "visa_id": "VISA_PT_FAM",
+      "step_type": "Virtual",
+      "order": 1,
+      "title": "Sponsor Pre-Authorization",
+      "description": "Sponsor requests authorization from AIMA."
+    },
+    {
+      "step_id": "STEP_CA_FSW_1",
+      "visa_id": "VISA_CA_FSW",
+      "step_type": "Virtual",
+      "order": 1,
+      "title": "Create Express Entry Profile",
+      "description": "Enter personal, education, and work details."
+    },
+    {
+      "step_id": "STEP_CA_SPOUSE_1",
+      "visa_id": "VISA_CA_SPOUSE",
+      "step_type": "Virtual",
+      "order": 1,
+      "title": "Prepare Sponsorship Package",
+      "description": "Sponsor and applicant complete forms and gather evidence."
+    },
+    {
+      "step_id": "STEP_CA_SUPER_1",
+      "visa_id": "VISA_CA_SUPER",
+      "step_type": "Virtual",
+      "order": 1,
+      "title": "Sponsor Prepares Documents",
+      "description": "Sponsor gathers income proof and invitation letter."
+    },
+    {
+      "step_id": "STEP_UK_SKILLED_1",
+      "visa_id": "VISA_UK_SKILLED",
+      "step_type": "Virtual",
+      "order": 1,
+      "title": "Certificate of Sponsorship",
+      "description": "Employer issues a valid Certificate of Sponsorship."
+    },
+    {
+      "step_id": "STEP_UK_FAMILY_1",
+      "visa_id": "VISA_UK_FAMILY",
+      "step_type": "Virtual",
+      "order": 1,
+      "title": "Gather Relationship Evidence",
+      "description": "Collect proof of genuine and subsisting relationship."
+    },
+    {
+      "step_id": "STEP_UK_HEALTH_1",
+      "visa_id": "VISA_UK_HEALTH",
+      "step_type": "Virtual",
+      "order": 1,
+      "title": "Receive Job Offer",
+      "description": "Applicant receives a job offer from an approved employer."
+    }
+  ]
+}

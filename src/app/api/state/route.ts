@@ -21,7 +21,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return jsonResponse(getAppState(user.id));
+  return jsonResponse(await getAppState(user.id));
 }
 
 export async function PATCH(request: NextRequest) {
@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest) {
   const mutation = (await request.json()) as AppMutation;
 
   try {
-    return jsonResponse(applyMutation(user, mutation));
+    return jsonResponse(await applyMutation(user, mutation));
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "forbidden") {

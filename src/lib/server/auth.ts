@@ -38,26 +38,28 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-function deleteExpiredSessions() {
-  getDatabase()
-    .prepare("DELETE FROM sessions WHERE expires_at <= ?")
-    .run(new Date().toISOString());
+async function deleteExpiredSessions() {
+  const database = await getDatabase();
+  await database.run("DELETE FROM sessions WHERE expires_at <= ?", [
+    new Date().toISOString(),
+  ]);
 }
 
-function findUserByEmail(email: string) {
-  return getDatabase()
-    .prepare(
-      `
-        SELECT id, email, role, tier, seed_key, profile_json, password_hash
-        FROM users
-        WHERE email = ? AND is_active = 1
-      `
-    )
-    .get(normalizeEmail(email)) as (UserRow & { password_hash: string }) | undefined;
+async function findUserByEmail(email: string) {
+  const database = await getDatabase();
+
+  return database.one<UserRow & { password_hash: string }>(
+    `
+      SELECT id, email, role, tier, seed_key, profile_json, password_hash
+      FROM users
+      WHERE email = ? AND is_active = 1
+    `,
+    [normalizeEmail(email)]
+  );
 }
 
-export function authenticateUser(email: string, password: string) {
-  const user = findUserByEmail(email);
+export async function authenticateUser(email: string, password: string) {
+  const user = await findUserByEmail(email);
 
   if (!user) {
     return null;
@@ -70,22 +72,22 @@ export function authenticateUser(email: string, password: string) {
   return mapUserRow(user);
 }
 
-export function createSession(userId: string) {
-  deleteExpiredSessions();
+export async function createSession(userId: string) {
+  await deleteExpiredSessions();
 
   const token = createSessionToken();
   const tokenHash = hashSessionToken(token);
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + SESSION_DURATION_DAYS);
+  const database = await getDatabase();
 
-  getDatabase()
-    .prepare(
-      `
-        INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at)
-        VALUES (?, ?, ?, ?, ?)
-      `
-    )
-    .run(randomUUID(), userId, tokenHash, expiresAt.toISOString(), new Date().toISOString());
+  await database.run(
+    `
+      INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `,
+    [randomUUID(), userId, tokenHash, expiresAt.toISOString(), new Date().toISOString()]
+  );
 
   return {
     token,
@@ -93,18 +95,19 @@ export function createSession(userId: string) {
   };
 }
 
-export function invalidateSession(token: string | undefined) {
+export async function invalidateSession(token: string | undefined) {
   if (!token) {
     return;
   }
 
-  getDatabase()
-    .prepare("DELETE FROM sessions WHERE token_hash = ?")
-    .run(hashSessionToken(token));
+  const database = await getDatabase();
+  await database.run("DELETE FROM sessions WHERE token_hash = ?", [
+    hashSessionToken(token),
+  ]);
 }
 
 export async function getOptionalSessionUser() {
-  deleteExpiredSessions();
+  await deleteExpiredSessions();
 
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
@@ -113,18 +116,18 @@ export async function getOptionalSessionUser() {
     return null;
   }
 
-  const row = getDatabase()
-    .prepare(
-      `
-        SELECT users.id, users.email, users.role, users.tier, users.seed_key, users.profile_json
-        FROM sessions
-        JOIN users ON users.id = sessions.user_id
-        WHERE sessions.token_hash = ?
-          AND sessions.expires_at > ?
-          AND users.is_active = 1
-      `
-    )
-    .get(hashSessionToken(token), new Date().toISOString()) as UserRow | undefined;
+  const database = await getDatabase();
+  const row = await database.one<UserRow>(
+    `
+      SELECT users.id, users.email, users.role, users.tier, users.seed_key, users.profile_json
+      FROM sessions
+      JOIN users ON users.id = sessions.user_id
+      WHERE sessions.token_hash = ?
+        AND sessions.expires_at > ?
+        AND users.is_active = 1
+    `,
+    [hashSessionToken(token), new Date().toISOString()]
+  );
 
   if (!row) {
     return null;

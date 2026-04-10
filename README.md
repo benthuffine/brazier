@@ -20,6 +20,15 @@ npm install
 npm run dev
 ```
 
+The app defaults to SQLite locally. To override the database backend, create a `.env.local` from `.env.example`.
+
+## Database
+
+- Local development: `DATABASE_PROVIDER=sqlite`
+- Production: `DATABASE_PROVIDER=postgres` with `DATABASE_URL`
+- Optional SQLite override: `SQLITE_DATABASE_PATH`
+- Optional Postgres overrides: `DATABASE_SSL`, `POSTGRES_POOL_MAX`
+
 ## Demo Accounts
 
 - Admin: `admin@migrately.demo` / `DemoAdmin!23`
@@ -28,6 +37,6 @@ npm run dev
 
 ## Notes
 
-- The MVP now persists to a local SQLite file in `storage/migrately.sqlite`.
-- The storage boundary is isolated so the next backend step can swap SQLite for Supabase/PostgreSQL without rewriting the UI.
+- The app uses SQLite by default in local development and can switch to PostgreSQL via environment variables.
+- Local SQLite persists to `storage/migrately.sqlite` unless `SQLITE_DATABASE_PATH` is set.
 - The app is explicitly framed as informational and non-legal-advice UX.

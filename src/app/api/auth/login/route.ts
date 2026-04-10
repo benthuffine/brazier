@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const user = authenticateUser(email, password);
+  const user = await authenticateUser(email, password);
 
   if (!user) {
     return NextResponse.json(
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const session = createSession(user.id);
+  const session = await createSession(user.id);
   const response = NextResponse.json({
     user,
   });
