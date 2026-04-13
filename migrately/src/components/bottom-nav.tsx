@@ -8,6 +8,7 @@ import { getInitials } from "@/lib/mockup-ui";
 
 const items = [
   { href: "/app", label: "Home", key: "home" },
+  { href: "/app/search", label: "Search", key: "search" },
   { href: "/app/visas", label: "Visas", key: "visas" },
   { href: "/app/notifications", label: "Notifications", key: "alerts" },
   { href: "/app/profile", label: "Profile", key: "profile" },
@@ -58,6 +59,21 @@ function BellIcon() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M11 5.5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11Zm7.5 13.5-3.2-3.2"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 function NavIcon({
   itemKey,
   initials,
@@ -71,6 +87,10 @@ function NavIcon({
 
   if (itemKey === "visas") {
     return <ListIcon />;
+  }
+
+  if (itemKey === "search") {
+    return <SearchIcon />;
   }
 
   if (itemKey === "alerts") {
@@ -91,9 +111,7 @@ export function BottomNav({ userName }: { userName: string }) {
   return (
     <nav className="bottom-nav">
       {items.map((item) => {
-        const active =
-          pathname === item.href ||
-          (pathname === "/app/search" && item.key === "home");
+        const active = pathname === item.href;
 
         return (
           <Link

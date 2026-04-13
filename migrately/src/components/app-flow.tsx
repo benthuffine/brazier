@@ -56,11 +56,6 @@ function getRequirementSummaryCount(assessment: VisaAssessment) {
   };
 }
 
-function getEligibleAssessments(assessments: VisaAssessment[]) {
-  const eligible = assessments.filter((assessment) => assessment.isEligible);
-  return eligible.length > 0 ? eligible : assessments;
-}
-
 function getDiscoverVisaAssessments(assessments: VisaAssessment[]) {
   const eligible = assessments.find((assessment) => assessment.isEligible);
   const explore = assessments.find((assessment) => !assessment.isEligible);
@@ -71,6 +66,22 @@ function getDiscoverVisaAssessments(assessments: VisaAssessment[]) {
   );
 
   return ordered.slice(0, 2);
+}
+
+function getCatalogActionLabel(options: {
+  isEligible: boolean;
+  isSaved: boolean;
+  hasStarterLimit: boolean;
+}) {
+  if (options.isSaved) {
+    return "Open pathway";
+  }
+
+  if (options.isEligible) {
+    return options.hasStarterLimit ? "Upgrade to add" : "Start pathway";
+  }
+
+  return "View fit";
 }
 
 function getFirstIncompletePanel(entry: SavedPathwayEntry) {
@@ -152,24 +163,45 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
         .filter((entry): entry is SavedPathwayEntry => entry !== null),
     [assessments, countries, pathways, visas]
   );
-
-  const eligibleAssessments = useMemo(
-    () => getEligibleAssessments(assessments),
-    [assessments]
+  const savedVisaIds = useMemo(
+    () => new Set(savedEntries.map((entry) => entry.visa.id)),
+    [savedEntries]
   );
+  const hasStarterPathwayLimit = tier === "starter" && savedEntries.length >= 1;
+
   const discoverVisaAssessments = useMemo(
     () => getDiscoverVisaAssessments(assessments),
     [assessments]
   );
+  const catalogAssessments = useMemo(() => {
+    return [...assessments].sort((left, right) => {
+      const leftSaved = savedVisaIds.has(left.visa.id);
+      const rightSaved = savedVisaIds.has(right.visa.id);
+
+      if (leftSaved !== rightSaved) {
+        return leftSaved ? 1 : -1;
+      }
+
+      if (left.isEligible !== right.isEligible) {
+        return left.isEligible ? -1 : 1;
+      }
+
+      if (left.score !== right.score) {
+        return right.score - left.score;
+      }
+
+      return left.visa.name.localeCompare(right.visa.name);
+    });
+  }, [assessments, savedVisaIds]);
   const discoverCountries = useMemo(() => {
     const matchedCountries = countries.filter((country) =>
-      discoverVisaAssessments.some(
+      assessments.some(
         (assessment) => assessment.visa.countryCode === country.code
       )
     );
 
-    return (matchedCountries.length > 0 ? matchedCountries : countries).slice(0, 2);
-  }, [countries, discoverVisaAssessments]);
+    return matchedCountries.length > 0 ? matchedCountries : countries;
+  }, [assessments, countries]);
 
   useEffect(() => {
     if (discoverCountries.length <= 1) {
@@ -188,7 +220,6 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
   }, [discoverCountries.map((country) => country.code).join(",")]);
 
   const unreadCount = notifications.filter((notification) => !notification.read).length;
-  const savedVisaIds = new Set(savedEntries.map((entry) => entry.visa.id));
   const requestedVisaId = searchParams.get("visa");
   const selectedSavedEntry =
     savedEntries.find((entry) => entry.visa.id === requestedVisaId) ??
@@ -197,6 +228,8 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
   const featuredCountry =
     discoverCountries[featuredIndex % Math.max(discoverCountries.length, 1)] ??
     countries[0];
+  const sheetPathwayHrefBase =
+    mode === "search" || mode === "visas" ? "/app/visas" : "/app";
   const selectedPathwaySignature = selectedSavedEntry
     ? getPathwayPanelSignature(selectedSavedEntry)
     : null;
@@ -226,13 +259,22 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
     router.push(`${hrefBase}?visa=${visaId}`);
   };
 
+  const openVisaDetails = (visaId: string) => {
+    setSheet({ kind: "visa", visaId });
+  };
+
   const startAndOpenPathway = (
     visaId: string,
     hrefBase: "/app" | "/app/visas"
   ) => {
     if (!savedVisaIds.has(visaId)) {
-      if (tier === "starter" && savedEntries.length >= 1) {
-        router.push("/app/profile");
+      if (hasStarterPathwayLimit) {
+        setSheet({
+          kind: "upgrade",
+          title: "Starter plan limit reached",
+          description:
+            "Starter users can save one pathway at a time. Upgrade to premium to save multiple pathways and compare routes side by side.",
+        });
         return;
       }
 
@@ -315,7 +357,7 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
               className="button primary wide-button"
               onClick={() => {
                 if (assessment.isEligible || savedVisaIds.has(assessment.visa.id)) {
-                  startAndOpenPathway(assessment.visa.id, "/app");
+                  startAndOpenPathway(assessment.visa.id, sheetPathwayHrefBase);
                   return;
                 }
 
@@ -360,7 +402,7 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
       return null;
     }
 
-    const countryAssessments = eligibleAssessments.filter(
+    const countryAssessments = assessments.filter(
       (assessment) => assessment.visa.countryCode === country.code
     );
 
@@ -401,7 +443,7 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
                     assessment.isEligible ? " eligible" : ""
                   }`}
                   onClick={() =>
-                    setSheet({ kind: "visa", visaId: assessment.visa.id })
+                    openVisaDetails(assessment.visa.id)
                   }
                   type="button"
                 >
@@ -478,7 +520,7 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
               <button
                 key={assessment.visa.id}
                 className="discover-card"
-                onClick={() => setSheet({ kind: "visa", visaId: assessment.visa.id })}
+                onClick={() => openVisaDetails(assessment.visa.id)}
                 type="button"
               >
                 <div
@@ -494,6 +536,72 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
                   {assessment.isEligible ? "Eligible" : "Explore"}
                 </span>
               </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="screen-section visa-catalog-section">
+        <div className="section-heading">
+          <h2>All Visa Matches</h2>
+          <span className="section-meta">
+            {catalogAssessments.length} route{catalogAssessments.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        <div className="mobile-card-stack">
+          {catalogAssessments.map((assessment) => {
+            const country = getCountryByCode(countries, assessment.visa.countryCode);
+            const requirementSummary = getRequirementSummaryCount(assessment);
+            const isSaved = savedVisaIds.has(assessment.visa.id);
+
+            return (
+              <article key={assessment.visa.id} className="visa-catalog-card">
+                <div className="visa-catalog-top">
+                  <div className="discover-copy">
+                    <p>
+                      {country?.flag ?? "🌍"} {country?.name ?? "Country"}
+                    </p>
+                    <strong>{assessment.visa.name}</strong>
+                    <span>{assessment.visa.summary}</span>
+                  </div>
+                  <span className={`cta-pill${assessment.isEligible ? " eligible" : ""}`}>
+                    {isSaved ? "Saved" : assessment.isEligible ? "Eligible" : "Review"}
+                  </span>
+                </div>
+                <div className="visa-catalog-meta">
+                  <span>
+                    {requirementSummary.passed} of {requirementSummary.total} requirements met
+                  </span>
+                  <span>{assessment.visa.processingTime}</span>
+                </div>
+                <div className="visa-catalog-actions">
+                  <button
+                    className="button light-button"
+                    onClick={() => openVisaDetails(assessment.visa.id)}
+                    type="button"
+                  >
+                    View details
+                  </button>
+                  <button
+                    className="button primary"
+                    onClick={() => {
+                      if (assessment.isEligible || isSaved) {
+                        startAndOpenPathway(assessment.visa.id, "/app/visas");
+                        return;
+                      }
+
+                      openVisaDetails(assessment.visa.id);
+                    }}
+                    type="button"
+                  >
+                    {getCatalogActionLabel({
+                      isEligible: assessment.isEligible,
+                      isSaved,
+                      hasStarterLimit: hasStarterPathwayLimit,
+                    })}
+                  </button>
+                </div>
+              </article>
             );
           })}
         </div>
@@ -519,7 +627,7 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
         </div>
         <div className="mobile-card-stack">
           {discoverCountries.map((country) => {
-            const countryVisaCount = eligibleAssessments.filter(
+            const countryVisaCount = assessments.filter(
               (assessment) => assessment.visa.countryCode === country.code
             ).length;
 
@@ -593,6 +701,13 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
       <section className="screen-section list-body-section">
         <div className="section-heading">
           <h2>Started Pathways</h2>
+          <button
+            className="section-arrow"
+            onClick={() => router.push("/app/search")}
+            type="button"
+          >
+            →
+          </button>
         </div>
 
         {savedEntries.length === 0 ? (
@@ -619,6 +734,16 @@ export function AppFlow({ mode }: { mode: AppFlowMode }) {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="screen-section list-discovery-section">
+        <button
+          className="button light-button wide-button"
+          onClick={() => router.push("/app/search")}
+          type="button"
+        >
+          Discover more visas
+        </button>
       </section>
 
       {renderSheet()}

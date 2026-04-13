@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+.DS_Store
+npm-debug.log*
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+storage/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.claude
+.idea

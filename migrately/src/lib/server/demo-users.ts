@@ -47,10 +47,10 @@ export const demoUsers: DemoSeedUser[] = [
     pathways: [
       {
         id: "admin-pathway-1",
-        visaId: "de-opportunity-card",
+        visaId: "VISA_CA_FSW",
         startedAt: "2026-03-26T10:00:00.000Z",
-        completedStepIds: ["de-step-1"],
-        completedDocumentIds: ["de-doc-1"],
+        completedStepIds: ["STEP_CA_FSW_1"],
+        completedDocumentIds: ["DOC007"],
       },
     ],
     notifications: [
@@ -94,7 +94,7 @@ export const demoUsers: DemoSeedUser[] = [
     pathways: [
       {
         id: "starter-pathway-1",
-        visaId: "pt-d8",
+        visaId: "VISA_PT_D8",
         startedAt: "2026-03-24T14:00:00.000Z",
         completedStepIds: [],
         completedDocumentIds: [],
@@ -104,11 +104,11 @@ export const demoUsers: DemoSeedUser[] = [
       {
         id: "starter-notif-1",
         title: "Portugal pathway started",
-        message: "Your Portugal D8 pathway is active. Next up: gather income proof.",
+        message: "Your Portugal D8 pathway is active. Next up: gather documentation.",
         createdAt: baseNotificationDate,
         read: false,
         kind: "pathway",
-        visaId: "pt-d8",
+        visaId: "VISA_PT_D8",
       },
     ],
   },
@@ -142,17 +142,17 @@ export const demoUsers: DemoSeedUser[] = [
     pathways: [
       {
         id: "premium-pathway-1",
-        visaId: "es-digital-nomad",
+        visaId: "VISA_UK_HEALTH",
         startedAt: "2026-03-22T11:00:00.000Z",
-        completedStepIds: ["es-step-1", "es-step-2"],
-        completedDocumentIds: ["es-doc-1"],
+        completedStepIds: ["STEP_UK_HEALTH_1"],
+        completedDocumentIds: ["DOC001"],
       },
     ],
     notifications: [
       {
         id: "premium-notif-1",
         title: "Premium explanations unlocked",
-        message: "Spain and UAE now show deeper requirement guidance.",
+        message: "The imported sample routes now show deeper requirement guidance.",
         createdAt: baseNotificationDate,
         read: false,
         kind: "eligibility",

@@ -13,6 +13,16 @@ import { AppNotification, Pathway, Visa } from "@/lib/types";
 import { normalizeVisa } from "@/lib/visa-source";
 
 const DEFAULT_SQLITE_DATABASE_PATH = path.join("storage", "migrately.sqlite");
+const CATALOG_SEED_VERSION = "sample_data_v1";
+const LEGACY_SEED_COUNTRY_CODES = ["ES", "EE", "AE", "DE", "CR"];
+const LEGACY_SEED_VISA_IDS = [
+  "pt-d8",
+  "es-digital-nomad",
+  "ee-digital-nomad",
+  "ae-virtual-work",
+  "de-opportunity-card",
+  "cr-digital-nomad",
+];
 
 type DatabaseProvider = "sqlite" | "postgres";
 type QueryValue = string | number | null;
@@ -231,6 +241,31 @@ async function writeCatalog(connection: DatabaseClient) {
   }
 }
 
+async function pruneLegacySeedCatalog(connection: DatabaseClient) {
+  const nextCountryCodes = new Set(initialState.countries.map((country) => country.code));
+  const nextVisaIds = new Set(initialState.visas.map((visa) => visa.id));
+
+  for (const visaId of LEGACY_SEED_VISA_IDS) {
+    if (nextVisaIds.has(visaId)) {
+      continue;
+    }
+
+    await connection.run("DELETE FROM pathways WHERE visa_id = ?", [visaId]);
+    await connection.run("DELETE FROM notifications WHERE value LIKE ?", [
+      `%"visaId":"${visaId}"%`,
+    ]);
+    await connection.run("DELETE FROM visas WHERE id = ?", [visaId]);
+  }
+
+  for (const countryCode of LEGACY_SEED_COUNTRY_CODES) {
+    if (nextCountryCodes.has(countryCode)) {
+      continue;
+    }
+
+    await connection.run("DELETE FROM countries WHERE code = ?", [countryCode]);
+  }
+}
+
 async function migrateCatalog(connection: DatabaseClient) {
   const visaRows = await connection.many<{ id: string; value: string }>(
     "SELECT id, value FROM visas"
@@ -293,40 +328,31 @@ async function writeNotification(
 }
 
 async function seedUsers(connection: DatabaseClient) {
-  const insertUser =
-    connection.dialect === "sqlite"
-      ? `
-          INSERT OR IGNORE INTO users (
-            id,
-            email,
-            password_hash,
-            role,
-            tier,
-            seed_key,
-            profile_json,
-            is_active,
-            created_at
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
-        `
-      : `
-          INSERT INTO users (
-            id,
-            email,
-            password_hash,
-            role,
-            tier,
-            seed_key,
-            profile_json,
-            is_active,
-            created_at
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
-          ON CONFLICT(id) DO NOTHING
-        `;
+  const upsertUser = `
+    INSERT INTO users (
+      id,
+      email,
+      password_hash,
+      role,
+      tier,
+      seed_key,
+      profile_json,
+      is_active,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      email = excluded.email,
+      password_hash = excluded.password_hash,
+      role = excluded.role,
+      tier = excluded.tier,
+      seed_key = excluded.seed_key,
+      profile_json = excluded.profile_json,
+      is_active = excluded.is_active
+  `;
 
   for (const user of demoUsers) {
-    const result = await connection.run(insertUser, [
+    await connection.run(upsertUser, [
       user.id,
       user.email.toLowerCase(),
       hashPassword(user.password),
@@ -337,16 +363,38 @@ async function seedUsers(connection: DatabaseClient) {
       new Date().toISOString(),
     ]);
 
-    if (result.changes > 0) {
-      for (const pathway of user.pathways) {
-        await writePathway(connection, user.id, pathway);
-      }
+    await connection.run("DELETE FROM pathways WHERE user_id = ?", [user.id]);
+    await connection.run("DELETE FROM notifications WHERE user_id = ?", [user.id]);
 
-      for (const notification of user.notifications) {
-        await writeNotification(connection, user.id, notification);
-      }
+    for (const pathway of user.pathways) {
+      await writePathway(connection, user.id, pathway);
+    }
+
+    for (const notification of user.notifications) {
+      await writeNotification(connection, user.id, notification);
     }
   }
+}
+
+async function getCatalogSeedVersion(connection: DatabaseClient) {
+  const row = await connection.one<{ value: string }>(
+    "SELECT value FROM metadata WHERE key = ?",
+    ["catalog_seed_version"]
+  );
+
+  return row?.value ?? null;
+}
+
+async function setCatalogSeedVersion(connection: DatabaseClient, version: string) {
+  await connection.run(
+    `
+      INSERT INTO metadata (key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value
+    `,
+    ["catalog_seed_version", version]
+  );
 }
 
 async function initializeDatabase(connection: DatabaseClient) {
@@ -414,6 +462,12 @@ async function initializeDatabase(connection: DatabaseClient) {
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
+  await connection.exec(`
+    CREATE TABLE IF NOT EXISTS metadata (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `);
 
   const countryCount = await connection.one<{ count: number }>(
     "SELECT COUNT(*) AS count FROM countries"
@@ -422,8 +476,15 @@ async function initializeDatabase(connection: DatabaseClient) {
     "SELECT COUNT(*) AS count FROM visas"
   );
 
+  const seedVersion = await getCatalogSeedVersion(connection);
+
   if (!countryCount || !visaCount || countryCount.count === 0 || visaCount.count === 0) {
     await writeCatalog(connection);
+    await setCatalogSeedVersion(connection, CATALOG_SEED_VERSION);
+  } else if (seedVersion !== CATALOG_SEED_VERSION) {
+    await pruneLegacySeedCatalog(connection);
+    await writeCatalog(connection);
+    await setCatalogSeedVersion(connection, CATALOG_SEED_VERSION);
   }
 
   await migrateCatalog(connection);

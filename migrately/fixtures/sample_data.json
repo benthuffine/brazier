@@ -180,14 +180,6 @@
       "visa_type": "Skilled worker",
       "description": "Visa for qualified health and care professionals with job offers from eligible employers.",
       "processing_time_days": 56
-    },
-    {
-      "visa_id": "VISA_UK_HEALTH",
-      "visa_name": "UK Health and Care Worker Visa",
-      "country": "United Kingdom",
-      "visa_type": "Skilled worker",
-      "description": "Visa for qualified health and care professionals with job offers from eligible employers.",
-      "processing_time_days": 56
     }
   ],
   "visa_requirements": [

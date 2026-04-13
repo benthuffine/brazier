@@ -29,6 +29,11 @@ The app defaults to SQLite locally. To override the database backend, create a `
 - Optional SQLite override: `SQLITE_DATABASE_PATH`
 - Optional Postgres overrides: `DATABASE_SSL`, `POSTGRES_POOL_MAX`
 
+## Seed Data
+
+- The starter catalog now derives from `fixtures/sample_data.json`.
+- On existing local databases, the app will migrate the legacy built-in demo catalog to this sample dataset on startup.
+
 ## Demo Accounts
 
 - Admin: `admin@migrately.demo` / `DemoAdmin!23`
@@ -39,4 +44,5 @@ The app defaults to SQLite locally. To override the database backend, create a `
 
 - The app uses SQLite by default in local development and can switch to PostgreSQL via environment variables.
 - Local SQLite persists to `storage/migrately.sqlite` unless `SQLITE_DATABASE_PATH` is set.
+- The initial visa and country catalog is generated from `fixtures/sample_data.json`.
 - The app is explicitly framed as informational and non-legal-advice UX.
